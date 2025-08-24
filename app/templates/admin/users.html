@@ -1,0 +1,123 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}使用者管理 - 管理後台{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">使用者管理</h1>
+    <a href="{{ url_for('admin.dashboard') }}" class="btn-secondary">
+        返回後台首頁
+    </a>
+</div>
+
+<div class="card">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-semibold">使用者列表</h2>
+        <div class="text-sm text-gray-600">
+            共 {{ users_list.total }} 位使用者，第 {{ users_list.page }} / {{ users_list.pages }} 頁
+        </div>
+    </div>
+    
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">使用者</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">角色</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">狀態</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">註冊時間</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for user in users_list.items %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">{{ user.username }}</div>
+                                <div class="text-sm text-gray-500">{{ user.email }}</div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex px-2 py-1 text-xs rounded 
+                                {% if user.role == 'admin' %}bg-purple-100 text-purple-800
+                                {% elif user.role == 'user' %}bg-blue-100 text-blue-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ user.role }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if user.is_active %}
+                                <span class="inline-flex px-2 py-1 text-xs bg-green-100 text-green-800 rounded">
+                                    啟用
+                                </span>
+                            {% else %}
+                                <span class="inline-flex px-2 py-1 text-xs bg-red-100 text-red-800 rounded">
+                                    待審核
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '' }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                            {% if not user.is_active %}
+                                <form method="POST" action="{{ url_for('admin.activate_user', user_id=user.id) }}" class="inline">
+                                    <button type="submit" class="text-green-600 hover:text-green-800">
+                                        啟用
+                                    </button>
+                                </form>
+                            {% else %}
+                                <form method="POST" action="{{ url_for('admin.deactivate_user', user_id=user.id) }}" class="inline">
+                                    <button type="submit" class="text-red-600 hover:text-red-800" 
+                                            onclick="return confirm('確定要停用此使用者嗎？')">
+                                        停用
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- 分頁 -->
+    {% if users_list.pages > 1 %}
+        <div class="flex justify-center mt-6">
+            <div class="flex space-x-2">
+                {% if users_list.has_prev %}
+                    <a href="{{ url_for('admin.users', page=users_list.prev_num) }}" 
+                       class="px-3 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
+                        上一頁
+                    </a>
+                {% endif %}
+                
+                {% for page_num in users_list.iter_pages() %}
+                    {% if page_num %}
+                        {% if page_num != users_list.page %}
+                            <a href="{{ url_for('admin.users', page=page_num) }}" 
+                               class="px-3 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
+                                {{ page_num }}
+                            </a>
+                        {% else %}
+                            <span class="px-3 py-2 text-sm bg-blue-600 text-white border border-blue-600 rounded">
+                                {{ page_num }}
+                            </span>
+                        {% endif %}
+                    {% else %}
+                        <span class="px-3 py-2 text-sm text-gray-400">…</span>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if users_list.has_next %}
+                    <a href="{{ url_for('admin.users', page=users_list.next_num) }}" 
+                       class="px-3 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
+                        下一頁
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

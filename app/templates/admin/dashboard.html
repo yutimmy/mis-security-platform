@@ -1,0 +1,262 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}管理後台 - 資安情訊平臺{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-900">管理後台</h1>
+    <p class="text-gray-600 mt-2">系統管理與監控面板</p>
+</div>
+
+<!-- 快速導航 -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <a href="{{ url_for('admin.users') }}" class="bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-blue-100 text-blue-800">👥</div>
+            <div class="ml-3">
+                <p class="font-medium text-gray-900">用戶管理</p>
+                <p class="text-sm text-gray-600">管理用戶帳號</p>
+            </div>
+        </div>
+    </a>
+    
+    <a href="{{ url_for('admin.rss_sources') }}" class="bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-green-100 text-green-800">📡</div>
+            <div class="ml-3">
+                <p class="font-medium text-gray-900">RSS 管理</p>
+                <p class="text-sm text-gray-600">管理新聞來源</p>
+            </div>
+        </div>
+    </a>
+    
+    <a href="{{ url_for('admin.jobs') }}" class="bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-yellow-100 text-yellow-800">⚙️</div>
+            <div class="ml-3">
+                <p class="font-medium text-gray-900">任務管理</p>
+                <p class="text-sm text-gray-600">監控系統任務</p>
+            </div>
+        </div>
+    </a>
+    
+    <a href="{{ url_for('admin.stats') }}" class="bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-purple-100 text-purple-800">📊</div>
+            <div class="ml-3">
+                <p class="font-medium text-gray-900">基礎統計</p>
+                <p class="text-sm text-gray-600">查看基本統計</p>
+            </div>
+        </div>
+    </a>
+</div>
+
+<!-- 新增進階功能導航 -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+    <a href="{{ url_for('admin.stats_advanced') }}" class="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-white/20">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+            </div>
+            <div class="ml-4">
+                <p class="font-bold text-lg">進階統計分析</p>
+                <p class="text-white/80">深度數據洞察與視覺化</p>
+            </div>
+        </div>
+    </a>
+    
+    <button onclick="triggerRSSCrawl()" class="bg-gradient-to-r from-blue-500 to-cyan-500 text-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 w-full text-left">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-white/20">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+            </div>
+            <div class="ml-4">
+                <p class="font-bold text-lg">快速任務</p>
+                <p class="text-white/80">執行RSS爬蟲與系統任務</p>
+            </div>
+        </div>
+    </button>
+    
+    <a href="{{ url_for('public.index') }}" class="bg-gradient-to-r from-green-500 to-teal-500 text-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-white/20">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                </svg>
+            </div>
+            <div class="ml-4">
+                <p class="font-bold text-lg">查看前台</p>
+                <p class="text-white/80">前往公開頁面</p>
+            </div>
+        </div>
+    </a>
+</div>
+
+<!-- 統計卡片 -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="card">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-blue-100 text-blue-800">
+                👥
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">總使用者數</p>
+                <p class="text-2xl font-bold text-gray-900">{{ stats.total_users }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-yellow-100 text-yellow-800">
+                ⏳
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">本週新聞</p>
+                <p class="text-2xl font-bold text-gray-900">{{ stats.week_news }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-green-100 text-green-800">
+                📰
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">新聞總數</p>
+                <p class="text-2xl font-bold text-gray-900">{{ stats.total_news }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-purple-100 text-purple-800">
+                📡
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">RSS 來源</p>
+                <p class="text-2xl font-bold text-gray-900">{{ stats.rss_sources }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 快速操作 -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <div class="card">
+        <h2 class="text-xl font-semibold mb-4">快速操作</h2>
+        <div class="space-y-3">
+            <a href="{{ url_for('admin.users') }}" 
+               class="block w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded border transition-colors">
+                👥 使用者管理
+            </a>
+            <a href="{{ url_for('admin.rss_sources') }}" 
+               class="block w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded border transition-colors">
+                📡 RSS 來源管理
+            </a>
+            <a href="{{ url_for('admin.jobs') }}" 
+               class="block w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded border transition-colors">
+                ⚙️ 任務執行紀錄
+            </a>
+            <button onclick="triggerRSSCrawl()" 
+                    class="block w-full text-left p-3 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded border border-blue-200 transition-colors">
+                🚀 執行 RSS 爬蟲
+            </button>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2 class="text-xl font-semibold mb-4">最近任務</h2>
+        {% if stats.recent_jobs %}
+            <div class="space-y-3">
+                {% for job in stats.recent_jobs %}
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+                        <div>
+                            <span class="font-medium">{{ job.job_type }}</span>
+                            {% if job.target %}
+                                <span class="text-sm text-gray-600"> - {{ job.target }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm font-medium 
+                                {% if job.status == 'success' %}text-green-600
+                                {% elif job.status == 'failed' %}text-red-600
+                                {% elif job.status == 'running' %}text-blue-600
+                                {% else %}text-yellow-600{% endif %}">
+                                {{ job.status }}
+                            </div>
+                            <div class="text-xs text-gray-500">
+                                {{ job.started_at.strftime('%Y-%m-%d %H:%M') if job.started_at else '' }}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-gray-500 italic">暫無任務記錄</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 待審核用戶 -->
+{% if stats.pending_users > 0 %}
+    <div class="card">
+        <h2 class="text-xl font-semibold mb-4">⚠️ 有 {{ stats.pending_users }} 位用戶等待審核</h2>
+        <p class="text-gray-600 mb-4">請儘快前往用戶管理頁面進行審核。</p>
+        <a href="{{ url_for('admin.users') }}" class="btn-primary">
+            前往審核
+        </a>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function triggerRSSCrawl() {
+    if (!confirm('確定要執行 RSS 爬蟲嗎？這可能需要一些時間來完成。')) {
+        return;
+    }
+    
+    const btn = event.target;
+    const originalText = btn.textContent;
+    btn.textContent = '🔄 執行中...';
+    btn.disabled = true;
+    btn.classList.add('opacity-50');
+    
+    fetch('/api/jobs/rss', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.code === 200) {
+            alert(`✅ RSS 爬蟲已開始執行\n${data.message}\n任務ID: ${data.data.job_run_id}`);
+            // 重新載入頁面以更新統計
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            alert(`❌ 執行失敗: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ 執行過程發生錯誤，請檢查網路連線');
+    })
+    .finally(() => {
+        // 恢復按鈕狀態
+        btn.textContent = originalText;
+        btn.disabled = false;
+        btn.classList.remove('opacity-50');
+    });
+}
+</script>
+{% endblock %}

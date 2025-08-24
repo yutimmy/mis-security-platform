@@ -1,0 +1,1352 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{% if post %}編輯文章{% else %}撰寫文章{% endif %}{% endblock %}
+
+{% block head %}
+<!-- Markdown 編輯器相關 CDN -->
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.5/dist/purify.min.js"></script>
+<style>
+/* 現代化輸入框樣式 */
+.modern-input {
+    width: 100%;
+    min-height: 3.5rem;
+    padding: 1rem 1.25rem;
+    font-size: 1rem;
+    line-height: 1.5;
+    color: #1f2937;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 2px solid #e5e7eb;
+    border-radius: 1rem;
+    outline: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    resize: none;
+    overflow-y: hidden;
+}
+
+.modern-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    background: #ffffff;
+    transform: translateY(-1px);
+}
+
+.modern-input::placeholder {
+    color: #9ca3af;
+    transition: color 0.3s ease;
+}
+
+.modern-input:focus::placeholder {
+    color: #6b7280;
+}
+
+/* 現代化標籤樣式 */
+.modern-label {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.75rem;
+    transition: color 0.3s ease;
+}
+
+.input-group:focus-within .modern-label {
+    color: #3b82f6;
+}
+
+/* 現代化按鈕樣式 */
+.modern-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.75rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-decoration: none;
+    border: none;
+    border-radius: 0.875rem;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.modern-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.modern-btn:hover::before {
+    left: 100%;
+}
+
+.modern-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 15px -3px rgba(0, 0, 0, 0.15);
+}
+
+.modern-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary-modern {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+}
+
+.btn-primary-modern:hover {
+    background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+}
+
+.btn-secondary-modern {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    color: #475569;
+    border: 1px solid #d1d5db;
+}
+
+.btn-secondary-modern:hover {
+    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+    color: #334155;
+}
+
+.btn-success-modern {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+}
+
+.btn-success-modern:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+}
+
+/* 工具欄現代化 */
+.modern-toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    white-space: nowrap;
+}
+
+.modern-toolbar-btn:hover {
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.modern-toolbar-btn.active {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    border-color: #3b82f6;
+    box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.4);
+}
+
+.editor-container {
+    display: flex;
+    gap: 1.5rem;
+    min-height: 80vh; /* 使用視窗高度的 80% */
+    border-radius: 1.25rem;
+    overflow: hidden;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.editor-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    border-radius: 1rem;
+}
+
+.editor-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-bottom: 1px solid #e2e8f0;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    border-radius: 1rem 1rem 0 0;
+}
+
+.toolbar-group {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.toolbar-btn:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+    transform: translateY(-1px);
+}
+
+.toolbar-btn.active {
+    background: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+}
+
+.editor-textarea {
+    flex: 1;
+    width: 100%;
+    min-height: 70vh; /* 使用視窗高度的 70% 作為最小高度 */
+    max-height: none; /* 移除最大高度限制 */
+    resize: vertical; /* 允許垂直調整大小 */
+    font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', monospace;
+    font-size: 16px; /* 增大字體 */
+    line-height: 1.8; /* 增加行高 */
+    padding: 2rem;
+    border: none;
+    outline: none;
+    background: linear-gradient(135deg, #fefefe 0%, #ffffff 100%);
+    color: #1f2937;
+    transition: all 0.3s ease;
+}
+
+.editor-textarea:focus {
+    background: #ffffff;
+    box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.1);
+}
+
+.preview-pane {
+    flex: 1;
+    border-left: 2px solid #f1f5f9;
+    overflow-y: auto;
+    background: linear-gradient(135deg, #fafbfc 0%, #f8fafc 100%);
+    border-radius: 0 1rem 1rem 0;
+}
+
+.preview-header {
+    padding: 1rem 1.25rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-bottom: 1px solid #e2e8f0;
+    font-weight: 600;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 0 1rem 0 0;
+}
+
+.preview-content {
+    padding: 2rem;
+    line-height: 1.8;
+    color: #1f2937;
+    background: linear-gradient(135deg, #ffffff 0%, #fefefe 100%);
+    margin: 1.5rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    min-height: calc(100% - 3rem);
+}
+
+.preview-content h1 { 
+    font-size: 2rem; 
+    font-weight: 700; 
+    margin-bottom: 1.5rem; 
+    color: #111827;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 0.5rem;
+}
+.preview-content h2 { 
+    font-size: 1.625rem; 
+    font-weight: 600; 
+    margin: 1.5rem 0 1rem 0; 
+    color: #1f2937;
+}
+.preview-content h3 { 
+    font-size: 1.375rem; 
+    font-weight: 600; 
+    margin: 1.25rem 0 0.75rem 0; 
+    color: #374151;
+}
+.preview-content p { 
+    margin-bottom: 1.25rem; 
+    color: #4b5563;
+}
+.preview-content ul, .preview-content ol { 
+    margin-bottom: 1.25rem; 
+    padding-left: 1.75rem; 
+}
+.preview-content li { 
+    margin-bottom: 0.5rem; 
+    color: #4b5563;
+}
+.preview-content code { 
+    background: #f1f5f9; 
+    color: #e11d48; 
+    padding: 0.125rem 0.375rem; 
+    border-radius: 0.375rem; 
+    font-family: 'JetBrains Mono', monospace; 
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+.preview-content pre { 
+    background: #0f172a; 
+    color: #f1f5f9; 
+    padding: 1.5rem; 
+    border-radius: 0.75rem; 
+    overflow-x: auto; 
+    margin: 1.5rem 0; 
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+.preview-content pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+}
+.preview-content blockquote { 
+    border-left: 4px solid #3b82f6; 
+    background: #f8fafc;
+    padding: 1rem 1.5rem; 
+    margin: 1.5rem 0; 
+    font-style: italic; 
+    border-radius: 0 0.5rem 0.5rem 0;
+    color: #475569;
+}
+.preview-content img { 
+    max-width: 100%; 
+    height: auto; 
+    border-radius: 0.75rem; 
+    margin: 1.5rem 0; 
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+.preview-content table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    margin: 1.5rem 0; 
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+.preview-content th, .preview-content td { 
+    border: 1px solid #e5e7eb; 
+    padding: 0.75rem 1rem; 
+    text-align: left; 
+}
+.preview-content th { 
+    background: #f8fafc; 
+    font-weight: 600; 
+    color: #374151;
+}
+.preview-content a {
+    color: #3b82f6;
+    text-decoration: underline;
+    text-decoration-color: rgba(59, 130, 246, 0.3);
+    text-underline-offset: 0.125em;
+    transition: all 0.2s;
+}
+.preview-content a:hover {
+    color: #1d4ed8;
+    text-decoration-color: #1d4ed8;
+}
+
+/* 響應式預覽模式優化 */
+@media (max-width: 1200px) {
+    .preview-mode-active .editor-container {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+    
+    .preview-mode-active .editor-pane {
+        border-radius: 1rem 1rem 0 0;
+    }
+    
+    .preview-mode-active .preview-pane {
+        border-radius: 0 0 1rem 1rem;
+        border-left: none;
+        border-top: 2px solid #f1f5f9;
+    }
+}
+
+/* 響應式設計 */
+@media (max-width: 1024px) {
+    .editor-container {
+        gap: 1rem;
+        min-height: 75vh; /* 平板設備使用較小的視窗高度 */
+    }
+    
+    .editor-textarea {
+        font-size: 15px;
+        padding: 1.5rem;
+        min-height: 60vh; /* 平板設備調整最小高度 */
+    }
+    
+    .preview-content {
+        padding: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .editor-container {
+        flex-direction: column;
+        min-height: 70vh; /* 手機設備使用適當的視窗高度 */
+        gap: 0;
+    }
+    
+    .preview-pane {
+        border-left: none;
+        border-top: 2px solid #f1f5f9;
+        min-height: 50vh; /* 預覽區域給予充足的高度 */
+        border-radius: 0 0 1rem 1rem;
+    }
+    
+    .preview-header {
+        border-radius: 0;
+    }
+    
+    .editor-pane {
+        border-radius: 1rem 1rem 0 0;
+    }
+    
+    .editor-textarea {
+        min-height: 50vh; /* 手機設備給予更大的編輯空間 */
+        font-size: 16px; /* 保持較大字體以提升可讀性 */
+        padding: 1.25rem;
+    }
+    
+    .toolbar-group {
+        justify-content: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .modern-toolbar-btn {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.8rem;
+    }
+    
+    .modern-input {
+        padding: 0.875rem 1rem;
+        font-size: 0.95rem;
+    }
+    
+    .modern-btn {
+        padding: 0.75rem 1.5rem;
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .editor-container {
+        border-radius: 1rem;
+        min-height: 65vh; /* 小螢幕設備仍需要充足的編輯空間 */
+    }
+    
+    .editor-textarea {
+        padding: 1rem;
+        font-size: 15px; /* 保持適當的字體大小 */
+        min-height: 45vh; /* 小螢幕也要有足夠的編輯空間 */
+    }
+    
+    .preview-content {
+        padding: 1rem;
+        margin: 0.75rem;
+    }
+    
+    .modern-input {
+        padding: 0.75rem;
+        font-size: 0.9rem;
+    }
+}
+
+/* 載入動畫增強 */
+.loading-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.loading-preview::after {
+    content: '';
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 2px solid #e5e7eb;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-left: 0.75rem;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* 增強預覽模式樣式 */
+.preview-mode-active .editor-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.preview-mode-active .preview-pane {
+    display: block !important;
+}
+
+/* 增強編輯器焦點狀態 */
+.editor-textarea:focus {
+    background: #ffffff;
+    box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.1);
+    transform: none; /* 移除可能干擾的變換 */
+}
+
+/* 確保編輯器在各種螢幕尺寸下都有良好的可見性 */
+.editor-pane {
+    min-width: 0; /* 防止 flex 項目收縮過度 */
+}
+
+/* 改善工具欄在窄螢幕上的顯示 */
+.editor-toolbar {
+    min-height: 4rem;
+}
+
+.toolbar-group {
+    min-width: 0;
+}
+
+/* Badge 樣式 */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border-radius: 0.375rem;
+    white-space: nowrap;
+}
+
+.badge-primary {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+}
+
+/* Toast 樣式增強 */
+.toast {
+    backdrop-filter: blur(10px);
+    border-radius: 0.875rem;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* 自適應高度動畫 */
+.auto-resize {
+    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 焦點狀態增強 */
+.input-group {
+    position: relative;
+}
+
+.input-group::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    width: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+    border-radius: 1px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateX(-50%);
+}
+
+.input-group:focus-within::after {
+    width: 100%;
+}
+
+/* 按鈕群組 */
+.btn-group {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+@media (max-width: 640px) {
+    .btn-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .btn-group .modern-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    <div class="max-w-7xl mx-auto">
+        <!-- 頁面標題 -->
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-900">
+                    {% if post %}編輯文章{% else %}撰寫文章{% endif %}
+                </h1>
+                <p class="text-gray-600 text-sm mt-1">使用 Markdown 語法撰寫您的文章</p>
+            </div>
+            <a href="{% if post %}{{ url_for('posts.view', post_id=post.id) }}{% else %}{{ url_for('posts.index') }}{% endif %}" 
+               class="toolbar-btn">
+                ← 返回
+            </a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="mb-4 p-4 rounded-lg {% if category == 'error' %}bg-red-50 text-red-700 border border-red-200{% else %}bg-green-50 text-green-700 border border-green-200{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" enctype="multipart/form-data" class="space-y-8">
+            <!-- 基本資訊 -->
+            <div class="modern-card p-8">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-2 h-8 bg-gradient-to-b from-blue-500 to-blue-600 rounded-full"></div>
+                    <h2 class="text-xl font-bold text-gray-900">基本資訊</h2>
+                </div>
+                
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                    <div class="input-group">
+                        <label for="title" class="modern-label">
+                            📝 文章標題 *
+                        </label>
+                        <input type="text" 
+                               id="title" 
+                               name="title" 
+                               required
+                               value="{{ post.title if post else '' }}"
+                               class="modern-input"
+                               placeholder="輸入一個吸引人的標題..."
+                               autocomplete="off">
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="category" class="modern-label">
+                            🏷️ 文章分類
+                        </label>
+                        <input type="text" 
+                               id="category" 
+                               name="category"
+                               value="{{ post.category if post and post.category else '' }}"
+                               class="modern-input"
+                               placeholder="例如：技術分享、資安分析、心得筆記..."
+                               autocomplete="off">
+                    </div>
+                </div>
+                
+                <div class="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
+                    <div class="flex items-start gap-4">
+                        <div class="flex items-center mt-1">
+                            <input type="checkbox" 
+                                   id="is_published" 
+                                   name="is_published" 
+                                   value="1"
+                                   {% if not post or post.is_published %}checked{% endif %}
+                                   class="w-5 h-5 text-blue-600 focus:ring-blue-500 border-2 border-gray-300 rounded-md transition-all duration-200">
+                        </div>
+                        <div class="flex-1">
+                            <label for="is_published" class="block cursor-pointer">
+                                <span class="text-base font-semibold text-gray-900">🚀 立即發布文章</span>
+                                <p class="text-sm text-gray-600 mt-1">
+                                    勾選後文章將立即對所有用戶可見，取消勾選將儲存為草稿狀態
+                                </p>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Markdown 編輯器 -->
+            <div class="modern-card overflow-hidden">
+                <div class="p-6 bg-gradient-to-r from-gray-50 to-blue-50 border-b border-gray-200">
+                    <div class="flex items-center justify-between flex-wrap gap-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-2 h-8 bg-gradient-to-b from-green-500 to-green-600 rounded-full"></div>
+                            <h2 class="text-xl font-bold text-gray-900">📄 文章內容</h2>
+                        </div>
+                        <div class="flex items-center gap-3 text-sm">
+                            <span class="hidden lg:inline-flex items-center gap-1 px-3 py-1.5 bg-white rounded-lg border border-gray-200 text-gray-600">
+                                ✨ 支援 Markdown 語法
+                            </span>
+                            <div class="flex gap-2">
+                                <span class="badge badge-primary">Ctrl+B 粗體</span>
+                                <span class="badge badge-primary">Ctrl+I 斜體</span>
+                                <span class="badge badge-primary hidden sm:inline">Ctrl+Enter 預覽</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="editor-container" id="editor-container">
+                    <!-- 編輯區域 -->
+                    <div class="editor-pane">
+                        <div class="editor-toolbar">
+                            <div class="toolbar-group">
+                                <button type="button" onclick="insertMarkdown('**', '**')" class="modern-toolbar-btn" title="粗體 (Ctrl+B)">
+                                    <strong>B</strong>
+                                </button>
+                                <button type="button" onclick="insertMarkdown('*', '*')" class="modern-toolbar-btn" title="斜體 (Ctrl+I)">
+                                    <em>I</em>
+                                </button>
+                                <button type="button" onclick="insertMarkdown('# ', '')" class="modern-toolbar-btn" title="標題">
+                                    H1
+                                </button>
+                                <button type="button" onclick="insertMarkdown('`', '`')" class="modern-toolbar-btn" title="行內程式碼">
+                                    &lt;/&gt;
+                                </button>
+                                <button type="button" onclick="insertMarkdown('[', '](url)')" class="modern-toolbar-btn" title="連結 (Ctrl+K)">
+                                    🔗
+                                </button>
+                                <button type="button" onclick="insertMarkdown('![', '](url)')" class="modern-toolbar-btn" title="圖片">
+                                    🖼️
+                                </button>
+                                <button type="button" onclick="insertMarkdown('> ', '')" class="modern-toolbar-btn" title="引用">
+                                    💬
+                                </button>
+                            </div>
+                            
+                            <div class="toolbar-group">
+                                <label for="image-upload" class="modern-toolbar-btn cursor-pointer" title="上傳圖片">
+                                    📎 上傳圖片
+                                </label>
+                                <input type="file" id="image-upload" accept="image/*" class="hidden" onchange="uploadImage(this)">
+                                
+                                <button type="button" onclick="togglePreview()" class="modern-toolbar-btn" id="preview-toggle" title="切換預覽 (Ctrl+Enter)">
+                                    👁️ 預覽
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <textarea id="content" 
+                                  name="content" 
+                                  class="editor-textarea auto-resize" 
+                                  placeholder="🎯 開始撰寫您的文章...
+
+# 這是主標題
+
+## 這是副標題
+
+您可以使用 **粗體** 和 *斜體* 文字來強調重點。
+
+### 📋 項目清單
+- 第一個重要項目
+- 第二個重要項目  
+- 第三個重要項目
+
+### 💻 程式碼區塊
+```python
+def hello_world():
+    print('Hello, World! 🌍')
+    return 'success'
+```
+
+### 💡 引用區塊
+> 這是一段重要的引用文字，可以用來突出關鍵觀點或名言。
+
+### 🔗 連結和圖片
+[官方網站](https://example.com)
+![圖片描述](圖片網址)
+
+---
+
+**小提示：** 使用工具欄按鈕或鍵盤快捷鍵可以快速插入 Markdown 語法！">{{ post.content if post else '' }}</textarea>
+                    </div>
+                    
+                    <!-- 預覽區域 -->
+                    <div class="editor-pane preview-pane" id="preview-pane" style="display: none;">
+                        <div class="preview-header">
+                            📄 即時預覽
+                        </div>
+                        <div class="preview-content" id="preview-content">
+                            <div class="loading-preview">
+                                正在載入預覽...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 操作按鈕 -->
+            <div class="btn-group">
+                <a href="{% if post %}{{ url_for('posts.view', post_id=post.id) }}{% else %}{{ url_for('posts.index') }}{% endif %}"
+                   class="modern-btn btn-secondary-modern">
+                    ← 取消
+                </a>
+                <button type="submit"
+                        class="modern-btn btn-primary-modern">
+                    {% if post %}💾 更新文章{% else %}🚀 發布文章{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let previewMode = false;
+let isPreviewLoading = false;
+const contentTextarea = document.getElementById('content');
+const previewPane = document.getElementById('preview-pane');
+const previewContent = document.getElementById('preview-content');
+const previewToggle = document.getElementById('preview-toggle');
+
+// 確保 marked 和 DOMPurify 載入完成
+function waitForLibraries() {
+    return new Promise((resolve) => {
+        const checkLibraries = () => {
+            if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+                // 設定 marked 選項
+                marked.setOptions({
+                    breaks: true,
+                    gfm: true,
+                    sanitize: false // 我們用 DOMPurify 來清理
+                });
+                resolve();
+            } else {
+                setTimeout(checkLibraries, 50);
+            }
+        };
+        checkLibraries();
+    });
+}
+
+// 即時預覽更新
+let updateTimeout;
+contentTextarea.addEventListener('input', function() {
+    if (previewMode && !isPreviewLoading) {
+        clearTimeout(updateTimeout);
+        updateTimeout = setTimeout(updatePreview, 300); // 防抖動
+    }
+});
+
+// 切換預覽模式 - 改善版本
+async function togglePreview() {
+    await waitForLibraries();
+    
+    previewMode = !previewMode;
+    const editorContainer = document.querySelector('.editor-container');
+    
+    if (previewMode) {
+        // 啟用預覽模式
+        previewPane.style.display = 'flex';
+        previewToggle.classList.add('active');
+        previewToggle.innerHTML = '✏️ 編輯模式';
+        editorContainer.classList.add('preview-mode-active');
+        
+        // 根據螢幕尺寸選擇佈局
+        editorContainer.style.display = 'grid';
+        if (window.innerWidth >= 1200) {
+            // 大螢幕：雙欄並排
+            editorContainer.style.gridTemplateColumns = '1fr 1fr';
+            showToast('👁️ 雙欄預覽模式已啟用！', 'info', 2000);
+        } else {
+            // 小螢幕：單欄堆疊
+            editorContainer.style.gridTemplateColumns = '1fr';
+            showToast('👁️ 預覽模式已啟用！', 'info', 2000);
+        }
+        
+        updatePreview();
+    } else {
+        // 回到純編輯模式
+        previewPane.style.display = 'none';
+        previewToggle.classList.remove('active');
+        previewToggle.innerHTML = '👁️ 預覽';
+        editorContainer.classList.remove('preview-mode-active');
+        
+        // 恢復單欄顯示
+        editorContainer.style.display = 'flex';
+        editorContainer.style.gridTemplateColumns = 'none';
+        
+        // 焦點回到編輯器
+        setTimeout(() => {
+            contentTextarea.focus();
+        }, 100);
+        
+        showToast('✏️ 已回到編輯模式', 'info', 1500);
+    }
+}
+
+// 更新預覽內容
+async function updatePreview() {
+    if (isPreviewLoading) return;
+    
+    isPreviewLoading = true;
+    previewContent.innerHTML = '<div class="loading-preview">正在更新預覽...</div>';
+    
+    try {
+        await waitForLibraries();
+        
+        const markdownText = contentTextarea.value || '# 開始撰寫您的文章\n\n在左側編輯器中輸入 Markdown 內容，預覽會即時更新。';
+        
+        // 使用 marked 解析 Markdown
+        const htmlContent = marked.parse(markdownText);
+        
+        // 使用 DOMPurify 清理 HTML
+        const cleanContent = DOMPurify.sanitize(htmlContent, {
+            ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'strong', 'em', 'u', 's', 'del', 'ins', 'sub', 'sup', 'mark', 'small', 'hr', 'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'blockquote', 'pre', 'code', 'a', 'img', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'div', 'span'],
+            ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'target', 'rel']
+        });
+        
+        previewContent.innerHTML = cleanContent;
+    } catch (error) {
+        console.error('預覽更新失敗:', error);
+        previewContent.innerHTML = '<div class="text-red-600 p-4">預覽更新失敗，請檢查 Markdown 語法</div>';
+    } finally {
+        isPreviewLoading = false;
+    }
+}
+
+// 插入 Markdown 語法
+function insertMarkdown(before, after) {
+    const start = contentTextarea.selectionStart;
+    const end = contentTextarea.selectionEnd;
+    const selectedText = contentTextarea.value.substring(start, end);
+    
+    const newText = before + selectedText + after;
+    
+    contentTextarea.value = contentTextarea.value.substring(0, start) + newText + contentTextarea.value.substring(end);
+    
+    // 設定游標位置
+    if (selectedText) {
+        contentTextarea.selectionStart = start + before.length;
+        contentTextarea.selectionEnd = start + before.length + selectedText.length;
+    } else {
+        contentTextarea.selectionStart = contentTextarea.selectionEnd = start + before.length;
+    }
+    
+    contentTextarea.focus();
+    autoResizeTextarea(contentTextarea);
+    
+    if (previewMode) {
+        updatePreview();
+    }
+}
+
+// 自適應高度調整 - 優化版本
+function autoResizeTextarea(textarea) {
+    // 移除嚴格的高度限制，讓編輯器根據內容自然成長
+    const currentHeight = textarea.style.height;
+    textarea.style.height = 'auto';
+    
+    // 獲取實際需要的高度
+    const scrollHeight = textarea.scrollHeight;
+    
+    // 設定最小高度為 70vh，但允許內容增長
+    const minHeight = Math.max(window.innerHeight * 0.7, 500);
+    const newHeight = Math.max(scrollHeight, minHeight);
+    
+    // 平滑調整高度
+    textarea.style.height = newHeight + 'px';
+    
+    // 確保有滾動條當內容很多時
+    if (scrollHeight > minHeight) {
+        textarea.style.overflowY = 'auto';
+    } else {
+        textarea.style.overflowY = 'hidden';
+    }
+}
+
+// 標題輸入框自適應高度
+function autoResizeInput(input) {
+    // 為標題輸入框調整高度
+    const minHeight = 56; // 3.5rem = 56px
+    const maxHeight = 120;
+    
+    // 創建臨時元素來測量文字高度
+    const temp = document.createElement('div');
+    temp.style.position = 'absolute';
+    temp.style.visibility = 'hidden';
+    temp.style.height = 'auto';
+    temp.style.width = input.offsetWidth + 'px';
+    temp.style.fontSize = window.getComputedStyle(input).fontSize;
+    temp.style.fontFamily = window.getComputedStyle(input).fontFamily;
+    temp.style.lineHeight = window.getComputedStyle(input).lineHeight;
+    temp.style.padding = window.getComputedStyle(input).padding;
+    temp.innerHTML = input.value.replace(/\n/g, '<br>') || input.placeholder;
+    
+    document.body.appendChild(temp);
+    const scrollHeight = temp.offsetHeight;
+    document.body.removeChild(temp);
+    
+    const newHeight = Math.min(Math.max(scrollHeight, minHeight), maxHeight);
+    input.style.height = newHeight + 'px';
+}
+
+// 增強的圖片上傳
+function uploadImage(input) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    // 檢查檔案類型
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+        showToast('❌ 請選擇支援的圖片格式：PNG、JPEG、WebP 或 GIF', 'error');
+        return;
+    }
+    
+    // 檢查檔案大小（1.5MB）
+    if (file.size > 1.5 * 1024 * 1024) {
+        showToast('⚠️ 圖片檔案大小不能超過 1.5MB\n建議使用線上工具壓縮圖片後再上傳', 'error');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    // 顯示上傳進度
+    const uploadLabel = document.querySelector('label[for="image-upload"]');
+    const originalText = uploadLabel.innerHTML;
+    uploadLabel.innerHTML = '⏳ 上傳中...';
+    uploadLabel.style.pointerEvents = 'none';
+    uploadLabel.classList.add('active');
+    
+    // 創建進度提示
+    const progressToast = showToast('📤 正在上傳圖片...', 'info', 0);
+    
+    fetch('/posts/upload-image', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (progressToast && progressToast.parentNode) {
+            progressToast.parentNode.removeChild(progressToast);
+        }
+        
+        if (data.code === 0) {
+            // 插入 Markdown 圖片語法
+            const imageMarkdown = `![${data.data.filename}](${data.data.url})\n`;
+            const cursorPos = contentTextarea.selectionStart;
+            const textBefore = contentTextarea.value.substring(0, cursorPos);
+            const textAfter = contentTextarea.value.substring(cursorPos);
+            
+            contentTextarea.value = textBefore + imageMarkdown + textAfter;
+            contentTextarea.selectionStart = contentTextarea.selectionEnd = cursorPos + imageMarkdown.length;
+            contentTextarea.focus();
+            
+            // 自動調整高度
+            autoResizeTextarea(contentTextarea);
+            
+            // 更新預覽
+            if (previewMode) {
+                updatePreview();
+            }
+            
+            // 顯示成功訊息
+            showToast('✅ 圖片上傳成功！', 'success');
+        } else {
+            showToast('❌ 上傳失敗：' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        if (progressToast && progressToast.parentNode) {
+            progressToast.parentNode.removeChild(progressToast);
+        }
+        console.error('上傳錯誤:', error);
+        showToast('❌ 上傳時發生錯誤，請稍後重試', 'error');
+    })
+    .finally(() => {
+        uploadLabel.innerHTML = originalText;
+        uploadLabel.style.pointerEvents = 'auto';
+        uploadLabel.classList.remove('active');
+        input.value = ''; // 清空檔案選擇
+    });
+}
+
+// 鍵盤快捷鍵
+contentTextarea.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + B = 粗體
+    if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault();
+        insertMarkdown('**', '**');
+    }
+    
+    // Ctrl/Cmd + I = 斜體
+    if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
+        e.preventDefault();
+        insertMarkdown('*', '*');
+    }
+    
+    // Ctrl/Cmd + K = 連結
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        insertMarkdown('[', '](url)');
+    }
+    
+    // Ctrl/Cmd + Enter = 切換預覽
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        togglePreview();
+    }
+    
+    // Tab = 縮排
+    if (e.key === 'Tab') {
+        e.preventDefault();
+        insertMarkdown('    ', '');
+    }
+});
+
+// Toast 提示訊息增強
+function showToast(message, type = 'info', autoHide = 3000) {
+    const toast = document.createElement('div');
+    toast.className = `toast fixed top-6 right-6 z-50 p-4 rounded-xl shadow-2xl transition-all duration-500 transform translate-x-full max-w-sm`;
+    
+    let bgClass, iconEmoji;
+    switch (type) {
+        case 'success':
+            bgClass = 'bg-gradient-to-r from-green-500 to-emerald-500 text-white';
+            iconEmoji = '✅';
+            break;
+        case 'error':
+            bgClass = 'bg-gradient-to-r from-red-500 to-pink-500 text-white';
+            iconEmoji = '❌';
+            break;
+        case 'warning':
+            bgClass = 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white';
+            iconEmoji = '⚠️';
+            break;
+        default:
+            bgClass = 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white';
+            iconEmoji = 'ℹ️';
+    }
+    
+    toast.classList.add(...bgClass.split(' '));
+    toast.innerHTML = `
+        <div class="flex items-start gap-3">
+            <span class="text-lg">${iconEmoji}</span>
+            <div class="flex-1">
+                <p class="font-medium">${message}</p>
+            </div>
+            <button onclick="this.parentElement.parentElement.remove()" class="ml-2 text-white hover:text-gray-200 transition-colors">
+                ✕
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // 顯示動畫
+    setTimeout(() => {
+        toast.classList.remove('translate-x-full');
+        toast.classList.add('translate-x-0');
+    }, 100);
+    
+    // 自動消失
+    if (autoHide > 0) {
+        setTimeout(() => {
+            toast.classList.add('translate-x-full');
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 500);
+        }, autoHide);
+    }
+    
+    return toast;
+}
+
+// 自動儲存草稿增強
+let autoSaveTimeout;
+let lastSavedContent = '';
+let isDraftSaving = false;
+
+function autoSaveDraft() {
+    const currentContent = {
+        title: document.getElementById('title').value,
+        category: document.getElementById('category').value,
+        content: contentTextarea.value
+    };
+    
+    const currentContentStr = JSON.stringify(currentContent);
+    
+    // 如果內容沒有變化，不需要儲存
+    if (currentContentStr === lastSavedContent || isDraftSaving) {
+        return;
+    }
+    
+    // 檢查是否有實質內容
+    if (!currentContent.title.trim() && !currentContent.content.trim()) {
+        return;
+    }
+    
+    isDraftSaving = true;
+    lastSavedContent = currentContentStr;
+    
+    // 這裡可以實作自動儲存 API
+    console.log('自動儲存草稿...', currentContent);
+    
+    // 模擬 API 請求
+    setTimeout(() => {
+        isDraftSaving = false;
+        // showToast('📝 草稿已自動儲存', 'info', 1500);
+    }, 1000);
+}
+
+// 輸入事件監聽
+function setupAutoResize() {
+    const titleInput = document.getElementById('title');
+    const categoryInput = document.getElementById('category');
+    
+    // 標題輸入框自適應
+    titleInput.addEventListener('input', function() {
+        autoResizeInput(this);
+        clearTimeout(autoSaveTimeout);
+        autoSaveTimeout = setTimeout(autoSaveDraft, 3000);
+    });
+    
+    // 分類輸入框自適應
+    categoryInput.addEventListener('input', function() {
+        autoResizeInput(this);
+        clearTimeout(autoSaveTimeout);
+        autoSaveTimeout = setTimeout(autoSaveDraft, 3000);
+    });
+    
+    // 內容輸入框自適應
+    contentTextarea.addEventListener('input', function() {
+        autoResizeTextarea(this);
+        clearTimeout(autoSaveTimeout);
+        autoSaveTimeout = setTimeout(autoSaveDraft, 3000);
+        
+        if (previewMode && !isPreviewLoading) {
+            clearTimeout(updateTimeout);
+            updateTimeout = setTimeout(updatePreview, 300);
+        }
+    });
+    
+    // 初始化自適應高度
+    autoResizeInput(titleInput);
+    autoResizeInput(categoryInput);
+    autoResizeTextarea(contentTextarea);
+}
+
+// 頁面載入完成後初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 設置自適應高度
+    setupAutoResize();
+    
+    // 優化編輯器初始化 - 移除高度限制
+    function initializeEditor() {
+        const container = document.getElementById('editor-container');
+        
+        // 確保編輯器容器有足夠的空間
+        container.style.minHeight = '80vh';
+        
+        // 確保 textarea 有舒適的編輯空間
+        const textarea = document.getElementById('content');
+        textarea.style.minHeight = '70vh';
+        
+        // 初始焦點設定到 textarea
+        setTimeout(() => {
+            textarea.focus();
+        }, 100);
+    }
+    
+    initializeEditor();
+    
+    // 監聽視窗大小變化，保持良好的編輯體驗
+    window.addEventListener('resize', function() {
+        autoResizeTextarea(contentTextarea);
+        
+        // 響應式預覽模式調整
+        if (previewMode) {
+            const editorContainer = document.querySelector('.editor-container');
+            if (window.innerWidth >= 1200) {
+                // 大螢幕：雙欄顯示
+                editorContainer.style.display = 'grid';
+                editorContainer.style.gridTemplateColumns = '1fr 1fr';
+            } else {
+                // 小螢幕：單欄堆疊
+                editorContainer.style.display = 'grid';
+                editorContainer.style.gridTemplateColumns = '1fr';
+            }
+        }
+    });
+    
+    // 如果有內容，初始化預覽
+    if (contentTextarea.value.trim() && previewMode) {
+        updatePreview();
+    }
+    
+    // 設置初始保存狀態
+    lastSavedContent = JSON.stringify({
+        title: document.getElementById('title').value,
+        category: document.getElementById('category').value,
+        content: contentTextarea.value
+    });
+    
+    // 頁面離開前提醒
+    window.addEventListener('beforeunload', function(e) {
+        const currentContent = JSON.stringify({
+            title: document.getElementById('title').value,
+            category: document.getElementById('category').value,
+            content: contentTextarea.value
+        });
+        
+        if (currentContent !== lastSavedContent) {
+            e.preventDefault();
+            e.returnValue = '您有未儲存的變更，確定要離開嗎？';
+            return e.returnValue;
+        }
+    });
+    
+    // 表單提交時清除警告
+    document.querySelector('form').addEventListener('submit', function() {
+        lastSavedContent = JSON.stringify({
+            title: document.getElementById('title').value,
+            category: document.getElementById('category').value,
+            content: contentTextarea.value
+        });
+    });
+});
+</script>
+{% endblock %}

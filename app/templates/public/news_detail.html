@@ -1,0 +1,487 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{{ news.title }} - 資安情訊平臺{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- 返回按鈕 -->
+    <div class="mb-6">
+        <a href="{{ url_for('public.index') }}" 
+           class="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors duration-200">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            返回新聞列表
+        </a>
+    </div>
+    
+    <!-- 新聞標題區域 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 mb-8 overflow-hidden">
+        <!-- 標題和來源 -->
+        <div class="p-6 sm:p-8">
+            <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-6 leading-tight">
+                {{ news.title or '無標題' }}
+            </h1>
+            
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <div class="flex flex-wrap items-center gap-3">
+                    <span class="badge badge-primary text-sm">{{ news.source }}</span>
+                    <span class="text-gray-600 text-sm">
+                        {{ news.created_at.strftime('%Y-%m-%d') if news.created_at else '' }}
+                    </span>
+                </div>
+                
+                <a href="{{ news.link }}" target="_blank" 
+                   class="btn-primary inline-flex items-center justify-center">
+                    <span>查看原文</span>
+                    <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                </a>
+            </div>
+        </div>
+        
+        <!-- CVE 與 POC 區域 -->
+        {% if cve_list %}
+            <div class="border-t border-gray-100 bg-gray-50 p-6 sm:p-8">
+                <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                    <div class="flex-1">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
+                            相關 CVE
+                        </h3>
+                        <div class="flex flex-wrap gap-2">
+                            {% for cve in cve_list %}
+                                <span class="badge badge-danger font-mono text-sm">{{ cve }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    {% if session.user_id %}
+                        <button onclick="queryPOC({{ news.id }}, '{{ news.cve_id }}')" 
+                                class="btn-secondary inline-flex items-center whitespace-nowrap"
+                                id="poc-btn-{{ news.id }}">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            查詢 POC
+                        </button>
+                    {% endif %}
+                </div>
+                
+                {% if news.poc_link %}
+                    <div class="mt-6 p-4 bg-green-50 border-l-4 border-green-400 rounded-r-lg">
+                        <div class="flex items-start">
+                            <svg class="w-5 h-5 text-green-400 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                            </svg>
+                            <div>
+                                <h4 class="font-medium text-green-800 mb-1">已找到 POC</h4>
+                                <a href="{{ news.poc_link }}" target="_blank" 
+                                   class="text-blue-600 hover:text-blue-800 break-all text-sm underline">
+                                    {{ news.poc_link }}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- 主要內容區域 -->
+    <div class="grid grid-cols-1 xl:grid-cols-4 gap-8">
+        <!-- 新聞內容 -->
+        <div class="xl:col-span-3">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                <h2 class="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    新聞內容
+                </h2>
+                <div class="prose max-w-none prose-gray">
+                    {% if news.content %}
+                        <div class="text-gray-700 leading-7 whitespace-pre-wrap text-base">{{ news.content }}</div>
+                    {% else %}
+                        <div class="text-center py-12">
+                            <svg class="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <p class="text-gray-500 italic text-lg">暫無內容</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- AI 分析側邊欄 -->
+        <div class="xl:col-span-1">
+            <div class="sticky top-8 space-y-6">
+                <!-- AI 摘要 -->
+                {% if ai_content.summary %}
+                    <div class="collapsible-section">
+                        <button onclick="toggleSection('summary')" 
+                                class="w-full bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-t-xl p-4 text-left flex items-center justify-between transition-colors duration-200">
+                            <h3 class="text-lg font-semibold text-blue-900 flex items-center">
+                                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                AI 摘要
+                            </h3>
+                            <svg id="summary-arrow" class="w-5 h-5 text-blue-600 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div id="summary-content" class="bg-white border-l border-r border-b border-blue-200 rounded-b-xl p-4">
+                            <p class="text-gray-700 leading-relaxed text-sm">{{ ai_content.summary }}</p>
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <!-- 翻譯 -->
+                {% if ai_content.translation %}
+                    <div class="collapsible-section">
+                        <button onclick="toggleSection('translation')" 
+                                class="w-full bg-green-50 hover:bg-green-100 border border-green-200 rounded-t-xl p-4 text-left flex items-center justify-between transition-colors duration-200">
+                            <h3 class="text-lg font-semibold text-green-900 flex items-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                                </svg>
+                                翻譯
+                            </h3>
+                            <svg id="translation-arrow" class="w-5 h-5 text-green-600 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div id="translation-content" class="bg-white border-l border-r border-b border-green-200 rounded-b-xl p-4">
+                            <p class="text-gray-700 leading-relaxed text-sm">{{ ai_content.translation }}</p>
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <!-- 如何利用 -->
+                {% if ai_content.how_to_exploit %}
+                    <div class="collapsible-section">
+                        <button onclick="toggleSection('exploit')" 
+                                class="w-full bg-red-50 hover:bg-red-100 border border-red-200 rounded-t-xl p-4 text-left flex items-center justify-between transition-colors duration-200">
+                            <h3 class="text-lg font-semibold text-red-900 flex items-center">
+                                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                                潛在利用方式
+                            </h3>
+                            <svg id="exploit-arrow" class="w-5 h-5 text-red-600 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div id="exploit-content" class="bg-white border-l border-r border-b border-red-200 rounded-b-xl p-4">
+                            <p class="text-gray-700 leading-relaxed text-sm">{{ ai_content.how_to_exploit }}</p>
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <!-- 關鍵字 -->
+                {% if ai_content.keywords %}
+                    <div class="collapsible-section">
+                        <button onclick="toggleSection('keywords')" 
+                                class="w-full bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-t-xl p-4 text-left flex items-center justify-between transition-colors duration-200">
+                            <h3 class="text-lg font-semibold text-purple-900 flex items-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                </svg>
+                                關鍵字
+                            </h3>
+                            <svg id="keywords-arrow" class="w-5 h-5 text-purple-600 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div id="keywords-content" class="bg-white border-l border-r border-b border-purple-200 rounded-b-xl p-4">
+                            <div class="flex flex-wrap gap-2">
+                                {% if ai_content.keywords is string %}
+                                    {% for keyword in ai_content.keywords.split(',') %}
+                                        <span class="badge badge-gray text-xs">{{ keyword.strip() }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    {% for keyword in ai_content.keywords %}
+                                        <span class="badge badge-gray text-xs">{{ keyword }}</span>
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <!-- Email 資訊 -->
+                {% if news.email %}
+                    <div class="collapsible-section">
+                        <button onclick="toggleSection('emails')" 
+                                class="w-full bg-yellow-50 hover:bg-yellow-100 border border-yellow-200 rounded-t-xl p-4 text-left flex items-center justify-between transition-colors duration-200">
+                            <h3 class="text-lg font-semibold text-yellow-900 flex items-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                                相關 Email
+                            </h3>
+                            <svg id="emails-arrow" class="w-5 h-5 text-yellow-600 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div id="emails-content" class="bg-white border-l border-r border-b border-yellow-200 rounded-b-xl p-4">
+                            <div class="space-y-2">
+                                {% for email in news.email.split(',') %}
+                                    <div class="text-xs text-gray-600 break-all font-mono bg-gray-50 p-2 rounded">
+                                        {{ email.strip() }}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- POC Modal (優化設計) -->
+<div id="poc-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl max-w-lg w-full max-h-96 flex flex-col shadow-2xl">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between p-6 border-b border-gray-200">
+            <h3 class="text-xl font-semibold text-gray-900 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                選擇要查詢的 CVE
+            </h3>
+            <button onclick="closePOCModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Modal Body -->
+        <div class="flex-1 overflow-y-auto p-6">
+            <div id="cve-list" class="space-y-3">
+                <!-- CVE 選項將由 JavaScript 動態生成 -->
+            </div>
+        </div>
+        
+        <!-- Modal Footer -->
+        <div class="flex space-x-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+            <button onclick="closePOCModal()" class="btn-secondary flex-1">取消</button>
+            <button onclick="submitPOCQuery()" class="btn-primary flex-1">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                查詢 POC
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let currentNewsId = null;
+
+// 摺疊功能
+function toggleSection(sectionId) {
+    const content = document.getElementById(sectionId + '-content');
+    const arrow = document.getElementById(sectionId + '-arrow');
+    
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        arrow.style.transform = 'rotate(0deg)';
+    } else {
+        content.style.display = 'none';
+        arrow.style.transform = 'rotate(-90deg)';
+    }
+}
+
+// 頁面載入時初始化所有區塊為展開狀態
+document.addEventListener('DOMContentLoaded', function() {
+    const sections = ['summary', 'translation', 'exploit', 'keywords', 'emails'];
+    sections.forEach(sectionId => {
+        const content = document.getElementById(sectionId + '-content');
+        const arrow = document.getElementById(sectionId + '-arrow');
+        if (content && arrow) {
+            content.style.display = 'block';
+            arrow.style.transform = 'rotate(0deg)';
+        }
+    });
+});
+
+function queryPOC(newsId, cveString) {
+    currentNewsId = newsId;
+    const cveList = cveString.split(',').map(c => c.trim()).filter(c => c);
+    
+    if (cveList.length === 1) {
+        // 只有一個 CVE，直接查詢
+        performPOCQuery(newsId, cveList);
+    } else {
+        // 多個 CVE，顯示選擇 modal
+        showPOCModal(cveList);
+    }
+}
+
+function showPOCModal(cveList) {
+    const cveListDiv = document.getElementById('cve-list');
+    cveListDiv.innerHTML = '';
+    
+    // 全選選項
+    const selectAllDiv = document.createElement('div');
+    selectAllDiv.className = 'flex items-center p-3 bg-gray-50 rounded-lg mb-3';
+    selectAllDiv.innerHTML = `
+        <input type="checkbox" id="select-all" class="mr-3 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" onchange="toggleAll(this)">
+        <label for="select-all" class="font-medium text-gray-900">全選</label>
+    `;
+    cveListDiv.appendChild(selectAllDiv);
+    
+    // 個別 CVE 選項
+    cveList.forEach((cve, index) => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center p-2 hover:bg-gray-50 rounded';
+        div.innerHTML = `
+            <input type="checkbox" id="cve-${index}" value="${cve}" class="mr-3 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cve-checkbox">
+            <label for="cve-${index}" class="text-sm font-mono bg-red-50 text-red-800 px-2 py-1 rounded">${cve}</label>
+        `;
+        cveListDiv.appendChild(div);
+    });
+    
+    document.getElementById('poc-modal').classList.remove('hidden');
+}
+
+function closePOCModal() {
+    document.getElementById('poc-modal').classList.add('hidden');
+    currentNewsId = null;
+}
+
+function toggleAll(selectAllCheckbox) {
+    const cveCheckboxes = document.querySelectorAll('.cve-checkbox');
+    cveCheckboxes.forEach(cb => {
+        cb.checked = selectAllCheckbox.checked;
+    });
+}
+
+function submitPOCQuery() {
+    const selectedCVEs = Array.from(document.querySelectorAll('.cve-checkbox:checked'))
+        .map(cb => cb.value);
+    
+    if (selectedCVEs.length === 0) {
+        showNotification('請至少選擇一個 CVE', 'warning');
+        return;
+    }
+    
+    closePOCModal();
+    performPOCQuery(currentNewsId, selectedCVEs);
+}
+
+function performPOCQuery(newsId, cveList) {
+    const btn = document.getElementById(`poc-btn-${newsId}`);
+    const originalHTML = btn.innerHTML;
+    
+    // 更新按鈕狀態
+    btn.innerHTML = `
+        <svg class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        查詢中...
+    `;
+    btn.disabled = true;
+    btn.classList.add('opacity-75', 'cursor-not-allowed');
+    
+    // 發送 API 請求
+    fetch('/api/jobs/poc', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            news_id: newsId,
+            cve_ids: cveList
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.code === 200) {
+            // 成功訊息
+            let message = `POC 查詢已完成！\n\nCVE: ${cveList.join(', ')}\n任務ID: ${data.data.job_run_id}`;
+            
+            if (data.data.found && data.data.found.length > 0) {
+                // 找到POC
+                showNotification(`🎯 成功找到 ${data.data.found.length} 個CVE的POC`, 'success');
+                
+                // 2秒後重新載入頁面以顯示更新結果
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            } else {
+                // 未找到POC
+                showNotification('⚠️ 未找到相關POC', 'warning');
+            }
+        } else {
+            showNotification(`查詢失敗: ${data.message}`, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('查詢過程發生錯誤，請檢查網路連線', 'error');
+    })
+    .finally(() => {
+        // 恢復按鈕狀態
+        setTimeout(() => {
+            btn.innerHTML = originalHTML;
+            btn.disabled = false;
+            btn.classList.remove('opacity-75', 'cursor-not-allowed');
+        }, 2000);
+    });
+}
+
+// 通知系統
+function showNotification(message, type = 'info') {
+    // 移除現有通知
+    const existingNotification = document.getElementById('notification');
+    if (existingNotification) {
+        existingNotification.remove();
+    }
+    
+    // 顏色配置
+    const colors = {
+        success: 'bg-green-500',
+        error: 'bg-red-500',
+        warning: 'bg-yellow-500',
+        info: 'bg-blue-500'
+    };
+    
+    // 建立通知元素
+    const notification = document.createElement('div');
+    notification.id = 'notification';
+    notification.className = `fixed top-4 right-4 ${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg z-50 transform translate-x-0 transition-all duration-300 max-w-sm`;
+    notification.innerHTML = `
+        <div class="flex items-center">
+            <span class="flex-1">${message}</span>
+            <button onclick="this.parentElement.parentElement.remove()" class="ml-3 text-white hover:text-gray-200">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // 自動移除通知
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.style.transform = 'translateX(100%)';
+            setTimeout(() => notification.remove(), 300);
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

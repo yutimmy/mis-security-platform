@@ -1,0 +1,28 @@
+# Flask 核心
+Flask==3.0.0
+Flask-SQLAlchemy==3.1.1
+
+# 環境設定
+python-dotenv==1.0.0
+
+# 網路請求與爬蟲
+requests==2.31.0
+feedparser==6.0.10
+beautifulsoup4==4.12.2
+
+# Google GenAI
+google-generativeai==0.3.2
+
+# 安全與驗證
+bcrypt==4.1.2
+email-validator==2.1.0
+
+# 圖片處理
+Pillow==10.1.0
+
+# Discord 通知
+discord.py==2.3.2
+
+# 開發與測試
+pytest==7.4.3
+pytest-flask==1.3.0

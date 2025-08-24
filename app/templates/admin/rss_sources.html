@@ -1,0 +1,74 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}RSS 來源管理 - 管理後台{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">RSS 來源管理</h1>
+    <div class="flex space-x-3">
+        <a href="{{ url_for('admin.add_rss_source') }}" class="btn-primary">
+            新增 RSS 來源
+        </a>
+        <a href="{{ url_for('admin.dashboard') }}" class="btn-secondary">
+            返回後台首頁
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <h2 class="text-lg font-semibold mb-4">RSS 來源列表</h2>
+    
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">來源名稱</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">來源標識</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">狀態</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最後執行</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for source in sources %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">{{ source.name }}</div>
+                                <div class="text-sm text-gray-500 break-all">{{ source.link[:80] }}{% if source.link|length > 80 %}...{% endif %}</div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ source.source }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if source.enabled %}
+                                <span class="inline-flex px-2 py-1 text-xs bg-green-100 text-green-800 rounded">
+                                    啟用
+                                </span>
+                            {% else %}
+                                <span class="inline-flex px-2 py-1 text-xs bg-red-100 text-red-800 rounded">
+                                    停用
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ source.last_run_at.strftime('%Y-%m-%d') if source.last_run_at else '從未執行' }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                            <form method="POST" action="{{ url_for('admin.toggle_rss_source', source_id=source.id) }}" class="inline">
+                                <button type="submit" class="text-blue-600 hover:text-blue-800">
+                                    {% if source.enabled %}停用{% else %}啟用{% endif %}
+                                </button>
+                            </form>
+                            <a href="{{ source.link }}" target="_blank" class="text-green-600 hover:text-green-800">
+                                測試
+                            </a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

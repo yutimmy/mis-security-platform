@@ -1,0 +1,265 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}任務管理 - 管理後台{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-3xl font-bold text-gray-900">任務管理</h1>
+        <div class="space-x-4">
+            <button onclick="triggerRSSJob()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                執行 RSS 爬蟲
+            </button>
+            <button onclick="triggerAIJob()" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
+                執行 AI 分析
+            </button>
+            <button onclick="refreshJobs()" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">
+                重新整理
+            </button>
+        </div>
+    </div>
+
+    <!-- 任務統計 -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white p-6 rounded-lg shadow">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-blue-100">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <h2 class="text-2xl font-bold text-gray-900" id="total-jobs">{{ stats.total_jobs or 0 }}</h2>
+                    <p class="text-gray-600">總任務數</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-green-100">
+                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <h2 class="text-2xl font-bold text-gray-900" id="success-jobs">{{ stats.success_jobs or 0 }}</h2>
+                    <p class="text-gray-600">成功任務</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-red-100">
+                    <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <h2 class="text-2xl font-bold text-gray-900" id="failed-jobs">{{ stats.failed_jobs or 0 }}</h2>
+                    <p class="text-gray-600">失敗任務</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-yellow-100">
+                    <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <h2 class="text-2xl font-bold text-gray-900" id="running-jobs">{{ stats.running_jobs or 0 }}</h2>
+                    <p class="text-gray-600">執行中任務</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 任務清單 -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-medium text-gray-900">最近任務執行記錄</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">任務類型</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">狀態</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">開始時間</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">結束時間</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">處理數量</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200" id="jobs-table">
+                    {% for job in jobs %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">#{{ job.id }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                {{ job.job_type }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {% if job.status == 'success' %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">成功</span>
+                            {% elif job.status == 'failed' %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">失敗</span>
+                            {% elif job.status == 'running' %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">執行中</span>
+                            {% else %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">{{ job.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ job.started_at.strftime('%Y-%m-%d %H:%M:%S') if job.started_at else '-' }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ job.ended_at.strftime('%Y-%m-%d %H:%M:%S') if job.ended_at else '-' }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            成功: {{ job.inserted_count or 0 }} / 錯誤: {{ job.error_count or 0 }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button onclick="viewJobDetails('{{ job.id }}')" class="text-blue-600 hover:text-blue-900">
+                                查看詳情
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-4 text-center text-gray-500">尚無任務執行記錄</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 任務詳情 Modal -->
+<div id="jobModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg max-w-2xl w-full max-h-96 overflow-y-auto">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">任務詳情</h3>
+            </div>
+            <div class="px-6 py-4">
+                <div id="jobDetails" class="space-y-4">
+                    <!-- 詳情內容將由 JS 填入 -->
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-gray-200 flex justify-end">
+                <button onclick="closeJobModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
+                    關閉
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function triggerRSSJob() {
+    if (confirm('確定要執行 RSS 爬蟲任務嗎？')) {
+        fetch('/api/jobs/rss', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message || '任務已開始執行');
+            refreshJobs();
+        })
+        .catch(error => {
+            alert('執行失敗：' + error.message);
+        });
+    }
+}
+
+function triggerAIJob() {
+    if (confirm('確定要執行 AI 分析任務嗎？')) {
+        fetch('/api/jobs/ai', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message || '任務已開始執行');
+            refreshJobs();
+        })
+        .catch(error => {
+            alert('執行失敗：' + error.message);
+        });
+    }
+}
+
+function refreshJobs() {
+    window.location.reload();
+}
+
+function viewJobDetails(jobId) {
+    fetch(`/api/jobs/${jobId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.code === 200) {
+                const job = data.data;
+                document.getElementById('jobDetails').innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><strong>任務 ID：</strong>${job.id}</div>
+                        <div><strong>類型：</strong>${job.job_type}</div>
+                        <div><strong>目標：</strong>${job.target || '全部'}</div>
+                        <div><strong>狀態：</strong>
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full 
+                                ${job.status === 'success' ? 'bg-green-100 text-green-800' : 
+                                  job.status === 'failed' ? 'bg-red-100 text-red-800' : 
+                                  job.status === 'partial' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-gray-100 text-gray-800'}">
+                                ${job.status === 'success' ? '成功' : 
+                                  job.status === 'failed' ? '失敗' : 
+                                  job.status === 'partial' ? '部分成功' : job.status}
+                            </span>
+                        </div>
+                        <div><strong>開始時間：</strong>${job.started_at || '-'}</div>
+                        <div><strong>結束時間：</strong>${job.ended_at || '-'}</div>
+                        <div><strong>成功處理：</strong>${job.inserted_count} 項</div>
+                        <div><strong>跳過：</strong>${job.skipped_count} 項</div>
+                        <div><strong>錯誤：</strong>${job.error_count} 項</div>
+                    </div>
+                    <div class="mt-4">
+                        <strong>詳細資訊：</strong>
+                        <pre class="mt-2 p-3 bg-gray-100 rounded text-xs overflow-auto max-h-40">${job.details || '無詳細資訊'}</pre>
+                    </div>
+                `;
+                document.getElementById('jobModal').classList.remove('hidden');
+            } else {
+                alert('無法載入任務詳情：' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('載入失敗：' + error.message);
+        });
+}
+
+function closeJobModal() {
+    document.getElementById('jobModal').classList.add('hidden');
+}
+
+// 每 30 秒自動重新整理執行中的任務
+setInterval(function() {
+    const runningJobs = document.querySelectorAll('.bg-yellow-100');
+    if (runningJobs.length > 0) {
+        refreshJobs();
+    }
+}, 30000);
+</script>
+{% endblock %}
