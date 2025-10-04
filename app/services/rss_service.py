@@ -1,5 +1,6 @@
 # RSS 服務：處理 RSS 爬蟲任務
 import json
+import logging
 from datetime import datetime
 
 from app.models.db import db
@@ -7,6 +8,9 @@ from app.models.schema import RssSource, News, JobRun
 from config import Config
 from crawlers.genai_client import GenAIClient
 from crawlers.rss import process_rss_feed, save_items_to_db
+
+
+logger = logging.getLogger(__name__)
 
 
 class RSSService:
@@ -21,7 +25,7 @@ class RSSService:
             try:
                 self.genai_client = GenAIClient()
             except Exception as e:
-                print(f"Warning: GenAI client initialization failed: {e}")
+                logger.warning("GenAI client initialization failed: %s", e)
     
     def run_all_rss(self):
         """執行所有啟用的 RSS 來源"""
@@ -53,10 +57,12 @@ class RSSService:
             total_processed = 0
             total_new = 0
             total_errors = 0
+            total_ai_requests = 0
+            total_ai_skipped = 0
             
             for source in rss_sources:
                 try:
-                    print(f"Processing RSS source: {source.name}")
+                    logger.info("Processing RSS source %s", source.name)
                     
                     # 處理 RSS feed
                     result = process_rss_feed(
@@ -79,12 +85,14 @@ class RSSService:
                     
                     total_processed += result['processed']
                     total_errors += result['errors']
+                    total_ai_requests += result.get('ai_requests', 0)
+                    total_ai_skipped += result.get('ai_skipped', 0)
                     
                     # 更新來源最後執行時間
                     source.last_run_at = datetime.now()
                     
                 except Exception as e:
-                    print(f"Error processing RSS source {source.name}: {e}")
+                    logger.exception("Error processing RSS source %s", source.name)
                     total_errors += 1
             
             # 更新任務記錄
@@ -97,21 +105,27 @@ class RSSService:
             
             return {
                 'success': True,
-                'message': f'RSS 爬蟲執行完成：處理 {total_processed} 項，新增 {total_new} 項，錯誤 {total_errors} 項',
+                'message': (
+                    f'RSS 爬蟲執行完成：處理 {total_processed} 項，新增 {total_new} 項，'
+                    f'錯誤 {total_errors} 項，AI 呼叫 {total_ai_requests} 次，跳過 {total_ai_skipped} 次'
+                ),
                 'job_run_id': job_run.id,
                 'stats': {
                     'processed': total_processed,
                     'new_items': total_new,
-                    'errors': total_errors
+                    'errors': total_errors,
+                    'ai_requests': total_ai_requests,
+                    'ai_skipped': total_ai_skipped
                 }
             }
             
         except Exception as e:
+            logger.exception("Failed to run RSS crawler for all sources")
             job_run.status = 'failed'
             job_run.ended_at = datetime.now()
             job_run.error_count = 1
             db.session.commit()
-            
+
             return {
                 'success': False,
                 'message': f'RSS 爬蟲執行失敗：{str(e)}',
@@ -139,7 +153,7 @@ class RSSService:
         db.session.commit()
         
         try:
-            print(f"Processing single RSS source: {source.name}")
+            logger.info("Processing single RSS source %s", source.name)
             
             # 處理 RSS feed
             result = process_rss_feed(
@@ -152,6 +166,8 @@ class RSSService:
             # 儲存到資料庫
             new_items = 0
             errors = 0
+            ai_requests = result.get('ai_requests', 0)
+            ai_skipped = result.get('ai_skipped', 0)
             
             if result['items']:
                 save_stats = save_items_to_db(
@@ -177,21 +193,27 @@ class RSSService:
             
             return {
                 'success': True,
-                'message': f'RSS 來源 {source.name} 處理完成：處理 {result["processed"]} 項，新增 {new_items} 項，錯誤 {errors} 項',
+                'message': (
+                    f'RSS 來源 {source.name} 處理完成：處理 {result["processed"]} 項，新增 {new_items} 項，'
+                    f'錯誤 {errors} 項，AI 呼叫 {ai_requests} 次，跳過 {ai_skipped} 次'
+                ),
                 'job_run_id': job_run.id,
                 'stats': {
                     'processed': result['processed'],
                     'new_items': new_items,
-                    'errors': errors
+                    'errors': errors,
+                    'ai_requests': ai_requests,
+                    'ai_skipped': ai_skipped
                 }
             }
             
         except Exception as e:
+            logger.exception("Failed to process RSS source %s", source.name)
             job_run.status = 'failed'
             job_run.ended_at = datetime.now()
             job_run.error_count = 1
             db.session.commit()
-            
+
             return {
                 'success': False,
                 'message': f'RSS 來源處理失敗：{str(e)}',
@@ -251,6 +273,7 @@ class RSSService:
             }
             
         except Exception as e:
+            logger.exception("AI re-analysis failed for news %s", news_id)
             job_run.status = 'failed'
             job_run.ended_at = datetime.now()
             job_run.error_count = 1

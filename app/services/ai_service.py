@@ -1,8 +1,12 @@
 # AI 服務：整合 prompts 和 GenAI 客戶端
-import os
 import json
+import logging
+import os
 
 from crawlers.genai_client import GenAIClient
+
+
+logger = logging.getLogger(__name__)
 
 
 class AIService:
@@ -16,7 +20,7 @@ class AIService:
         try:
             self.genai_client = GenAIClient()
         except Exception as e:
-            print(f"Warning: GenAI client initialization failed: {e}")
+            logger.warning("GenAI client initialization failed: %s", e)
     
     def load_prompt(self, prompt_name):
         """載入提示詞模板"""
@@ -58,7 +62,7 @@ class AIService:
             response = self.genai_client.model.generate_content(prompt)
             return response.text.strip()
         except Exception as e:
-            print(f"Summary generation failed: {e}")
+            logger.exception("Summary generation failed")
             return None
     
     def generate_translation(self, content, title="", source_lang="auto"):
@@ -92,7 +96,7 @@ class AIService:
             response = self.genai_client.model.generate_content(prompt)
             return response.text.strip()
         except Exception as e:
-            print(f"Translation generation failed: {e}")
+            logger.exception("Translation generation failed")
             return None
     
     def extract_keywords(self, content, title="", max_keywords=10):
@@ -143,7 +147,7 @@ class AIService:
                 return keywords[:max_keywords]
                 
         except Exception as e:
-            print(f"Keywords extraction failed: {e}")
+            logger.exception("Keyword extraction failed")
             return []
     
     def generate_exploitation_analysis(self, content, title="", cve_list=None):
@@ -177,7 +181,7 @@ class AIService:
             response = self.genai_client.model.generate_content(prompt)
             return response.text.strip()
         except Exception as e:
-            print(f"Exploitation analysis failed: {e}")
+            logger.exception("Exploitation analysis failed")
             return None
     
     def generate_complete_analysis(self, content, title="", source="", cve_list=None):

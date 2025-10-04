@@ -10,6 +10,14 @@ class Config:
     FLASK_ENV = os.getenv("FLASK_ENV", "development")
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-key")
     SQLITE_PATH = os.path.abspath(os.getenv("SQLITE_PATH", "./data/app.db"))
+    DATABASE_URL = os.getenv("DATABASE_URL", "")
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+    if DATABASE_URL:
+        SQLALCHEMY_DATABASE_URI = DATABASE_URL
+    else:
+        SQLALCHEMY_DATABASE_URI = f"sqlite:///{SQLITE_PATH}"
     TIMEZONE = os.getenv("TIMEZONE", "Asia/Taipei")
 
     DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN", "")

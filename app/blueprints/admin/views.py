@@ -3,7 +3,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from functools import wraps
 
 from app.models.db import db
-from app.models.schema import User, RssSource, JobRun, News
+from app.models.schema import User, RssSource, JobRun, News, Post
 from app.services.stats_service import StatsService
 
 
@@ -148,9 +148,6 @@ def stats():
     cve_stats = StatsService.get_cve_stats()
     security_metrics = StatsService.get_security_metrics()
 
-    # 近期 job 列表供 template 顯示
-    recent_jobs = JobRun.query.order_by(JobRun.started_at.desc()).limit(10).all()
-
     # 準備圖表資料
     monthly_labels = [item['date'] for item in news_trend] if news_trend else ['2024-07', '2024-08', '2024-09']
     monthly_counts = [item['count'] for item in news_trend] if news_trend else [15, 25, 18]
@@ -176,6 +173,9 @@ def stats():
     # 添加POC覆蓋率到dashboard_stats
     dashboard_stats['poc_coverage'] = poc_coverage
     dashboard_stats['poc_coverage_percent'] = poc_coverage_percent
+    
+    # 取得最近任務
+    recent_jobs = JobRun.query.order_by(JobRun.started_at.desc()).limit(5).all()
 
     # 使用現有的 admin/stats.html 模板，並提供前端所需的最小欄位
     return render_template('admin/stats.html',
@@ -315,3 +315,76 @@ def export_stats():
             'status': 'error',
             'message': f'數據匯出失敗: {str(e)}'
         }), 500
+
+
+@admin_bp.route('/posts')
+@admin_required
+def posts():
+    """文章管理"""
+    page = request.args.get('page', 1, type=int)
+    status = request.args.get('status', '')  # all/published/draft
+    author = request.args.get('author', '')
+    search = request.args.get('search', '')
+    
+    query = Post.query
+    
+    # 篩選條件
+    if status == 'published':
+        query = query.filter_by(is_published=True)
+    elif status == 'draft':
+        query = query.filter_by(is_published=False)
+    
+    if author:
+        query = query.filter_by(author_id=author)
+    
+    if search:
+        query = query.filter(
+            Post.title.contains(search) | 
+            Post.content.contains(search)
+        )
+    
+    posts_list = query.order_by(Post.updated_at.desc()).paginate(
+        page=page, per_page=20, error_out=False
+    )
+    
+    # 取得所有作者
+    authors = db.session.query(User.id, User.username).all()
+    
+    return render_template('admin/posts.html', 
+                         posts_list=posts_list,
+                         authors=authors,
+                         current_status=status,
+                         current_author=author,
+                         search_query=search)
+
+
+@admin_bp.route('/posts/<int:post_id>/delete', methods=['POST'])
+@admin_required
+def delete_post(post_id):
+    """刪除文章"""
+    post = Post.query.get_or_404(post_id)
+    
+    try:
+        db.session.delete(post)
+        db.session.commit()
+        return jsonify({'code': 0, 'message': '文章刪除成功'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'code': 1, 'message': f'刪除失敗: {str(e)}'})
+
+
+@admin_bp.route('/posts/<int:post_id>/toggle-publish', methods=['POST'])
+@admin_required
+def toggle_publish(post_id):
+    """切換文章發布狀態"""
+    post = Post.query.get_or_404(post_id)
+    
+    try:
+        post.is_published = not post.is_published
+        db.session.commit()
+        
+        status = '已發布' if post.is_published else '已取消發布'
+        return jsonify({'code': 0, 'message': f'文章{status}'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'code': 1, 'message': f'操作失敗: {str(e)}'})

@@ -4,6 +4,8 @@ import os
 import requests
 import json
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 from datetime import datetime, timedelta
 
 # 確保能夠匯入專案模組並使用正確的路徑
@@ -18,7 +20,7 @@ from app.services.rss_service import RSSService
 from app.services.poc_service import POCService
 from app.services.ai_service import AIService
 from crawlers.rss import process_rss_feed, save_items_to_db
-from crawlers.genai_client import GenAIClient
+from crawlers.genai_client import GenAIClient, RateLimitExceeded
 from config import Config
 
 
@@ -39,90 +41,90 @@ class TestCrawlerSystem(unittest.TestCase):
     
     def test_database_connection(self):
         """測試資料庫連接"""
-        print("\n1. 📊 測試資料庫連接...")
+        print("\n1. [Stats] 測試資料庫連接...")
         try:
             news_count = News.query.count()
             user_count = User.query.count()
             rss_count = RssSource.query.count()
             
-            print(f"   ✅ 資料庫連接正常")
-            print(f"   📰 新聞數量: {news_count}")
-            print(f"   👥 用戶數量: {user_count}")
-            print(f"   📡 RSS來源: {rss_count}")
+            print(f"   [OK] 資料庫連接正常")
+            print(f"   [News] 新聞數量: {news_count}")
+            print(f"   [Users] 用戶數量: {user_count}")
+            print(f"   [RSS] RSS來源: {rss_count}")
             
             self.assertTrue(True)  # 如果能執行到這裡就表示成功
         except Exception as e:
-            print(f"   ❌ 資料庫連接失敗: {e}")
+            print(f"   [Error] 資料庫連接失敗: {e}")
             self.fail(f"資料庫連接失敗: {e}")
     
     def test_rss_service(self):
         """測試 RSS 服務"""
-        print("\n2. 📡 測試 RSS 服務...")
+        print("\n2. [RSS] 測試 RSS 服務...")
         try:
             rss_service = RSSService()
-            print("   ✅ RSS 服務初始化成功")
+            print("   [OK] RSS 服務初始化成功")
             
             if rss_service.genai_client:
-                print("   ✅ GenAI 客戶端可用")
+                print("   [OK] GenAI 客戶端可用")
                 
                 # 測試 GenAI 連接
                 success, message = rss_service.genai_client.test_connection()
                 if success:
-                    print(f"   ✅ GenAI 連接測試成功: {message}")
+                    print(f"   [OK] GenAI 連接測試成功: {message}")
                 else:
-                    print(f"   ⚠️  GenAI 連接測試失敗: {message}")
+                    print(f"   [Warn]  GenAI 連接測試失敗: {message}")
             else:
-                print("   ⚠️  GenAI 客戶端未可用")
+                print("   [Warn]  GenAI 客戶端未可用")
                 
             self.assertIsInstance(rss_service, RSSService)
         except Exception as e:
-            print(f"   ❌ RSS 服務測試失敗: {e}")
+            print(f"   [Error] RSS 服務測試失敗: {e}")
             self.fail(f"RSS 服務測試失敗: {e}")
     
     def test_poc_service(self):
         """測試 POC 服務"""
-        print("\n3. 🔍 測試 POC 服務...")
+        print("\n3. [Search] 測試 POC 服務...")
         try:
             poc_service = POCService()
-            print("   ✅ POC 服務初始化成功")
+            print("   [OK] POC 服務初始化成功")
             
             self.assertIsInstance(poc_service, POCService)
         except Exception as e:
-            print(f"   ❌ POC 服務測試失敗: {e}")
+            print(f"   [Error] POC 服務測試失敗: {e}")
             self.fail(f"POC 服務測試失敗: {e}")
     
     def test_ai_service(self):
         """測試 AI 服務"""
-        print("\n4. 🤖 測試 AI 服務...")
+        print("\n4. [Bot] 測試 AI 服務...")
         try:
             ai_service = AIService()
             if ai_service.genai_client:
                 test_result = ai_service.genai_client.test_connection()
                 if test_result[0]:
-                    print("   ✅ AI 服務可用")
+                    print("   [OK] AI 服務可用")
                 else:
-                    print(f"   ❌ AI 連接失敗: {test_result[1]}")
+                    print(f"   [Error] AI 連接失敗: {test_result[1]}")
             else:
-                print("   ⚠️  AI 客戶端未配置")
+                print("   [Warn]  AI 客戶端未配置")
                 
             self.assertIsInstance(ai_service, AIService)
         except Exception as e:
-            print(f"   ❌ AI 服務測試失敗: {e}")
+            print(f"   [Error] AI 服務測試失敗: {e}")
             self.fail(f"AI 服務測試失敗: {e}")
     
     def test_news_with_cve(self):
         """測試CVE新聞數據"""
-        print("\n5. 📰 檢查測試數據...")
+        print("\n5. [News] 檢查測試數據...")
         try:
             cve_news = News.query.filter(News.cve_id.isnot(None)).first()
             if cve_news:
-                print(f"   ✅ 找到含CVE的新聞: {cve_news.title[:50]}...")
+                print(f"   [OK] 找到含CVE的新聞: {cve_news.title[:50]}...")
                 print(f"   🔢 CVE: {cve_news.cve_id}")
                 self.assertIsNotNone(cve_news.cve_id)
             else:
-                print("   ⚠️  沒有找到含CVE的新聞")
+                print("   [Warn]  沒有找到含CVE的新聞")
         except Exception as e:
-            print(f"   ❌ 新聞查詢失敗: {e}")
+            print(f"   [Error] 新聞查詢失敗: {e}")
             self.fail(f"新聞查詢失敗: {e}")
 
 
@@ -131,13 +133,13 @@ def test_rss_crawl():
     app = create_app()
     
     with app.app_context():
-        print("\n📡 開始測試 RSS 爬蟲...")
+        print("\n[RSS] 開始測試 RSS 爬蟲...")
         
         # 取得啟用的 RSS 來源
         rss_sources = RssSource.query.filter_by(enabled=True).all()
         
         if not rss_sources:
-            print("   ❌ 沒有找到啟用的 RSS 來源")
+            print("   [Error] 沒有找到啟用的 RSS 來源")
             return
         
         # 初始化 GenAI 客戶端（如果有 API key）
@@ -145,11 +147,11 @@ def test_rss_crawl():
         if Config.GOOGLE_GENAI_API_KEY:
             try:
                 genai_client = GenAIClient()
-                print("   ✅ GenAI 客戶端初始化成功")
+                print("   [OK] GenAI 客戶端初始化成功")
             except Exception as e:
-                print(f"   ⚠️  GenAI 客戶端初始化失敗：{e}")
+                print(f"   [Warn]  GenAI 客戶端初始化失敗：{e}")
         else:
-            print("   ⚠️  未設定 Google GenAI API Key，跳過 AI 分析")
+            print("   [Warn]  未設定 Google GenAI API Key，跳過 AI 分析")
         
         total_stats = {
             'processed': 0,
@@ -192,30 +194,80 @@ def test_rss_crawl():
 
 def test_api_endpoints():
     """測試API端點"""
-    print("\n🌐 測試API端點...")
+    print("\n[Network] 測試API端點...")
     base_url = "http://127.0.0.1:5000"
-    
+
     try:
         # 測試健康檢查
         response = requests.get(f"{base_url}/api/healthz", timeout=5)
         if response.status_code == 200:
-            print("   ✅ API健康檢查正常")
+            print("   [OK] API健康檢查正常")
         else:
-            print(f"   ❌ API健康檢查失敗: {response.status_code}")
+            print(f"   [Error] API健康檢查失敗: {response.status_code}")
         
         # 測試新聞API
         response = requests.get(f"{base_url}/api/news", timeout=5)
         if response.status_code == 200:
             data = response.json()
             news_count = len(data.get('data', {}).get('news', []))
-            print(f"   ✅ 新聞API正常 (共{news_count}則新聞)")
+            print(f"   [OK] 新聞API正常 (共{news_count}則新聞)")
         else:
-            print(f"   ❌ 新聞API失敗: {response.status_code}")
+            print(f"   [Error] 新聞API失敗: {response.status_code}")
             
     except requests.exceptions.ConnectionError:
-        print("   ⚠️  無法連接到Flask服務器，請確保服務器正在運行")
+        print("   [Warn]  無法連接到Flask服務器，請確保服務器正在運行")
     except Exception as e:
-        print(f"   ❌ API測試失敗: {e}")
+        print(f"   [Error] API測試失敗: {e}")
+
+
+@patch("crawlers.rss.feedparser.parse")
+def test_process_rss_feed_tracks_rate_limit(mock_parse):
+    """確保 RSS 處理能統計 AI 速率限制的略過次數"""
+
+    mock_parse.return_value = SimpleNamespace(
+        entries=[
+            SimpleNamespace(
+                title="First entry",
+                link="https://example.com/1",
+                published="2024-01-01",
+                summary="A" * 120,
+            ),
+            SimpleNamespace(
+                title="Second entry",
+                link="https://example.com/2",
+                published="2024-01-02",
+                summary="B" * 120,
+            ),
+        ],
+        bozo=False,
+        bozo_exception=None,
+    )
+
+    class StubGenAI:
+        def __init__(self):
+            self.calls = 0
+
+        def generate_analysis(self, *_args, **_kwargs):
+            if self.calls == 0:
+                self.calls += 1
+                return {
+                    "summary": "ok",
+                    "translation": "",
+                    "how_to_exploit": "",
+                    "keywords": [],
+                }
+            self.calls += 1
+            raise RateLimitExceeded("limit reached")
+
+    result = process_rss_feed(
+        "https://feed.example.com/rss", "test-source", genai_client=StubGenAI()
+    )
+
+    assert result['processed'] == 2
+    assert result['ai_requests'] == 1
+    assert result['ai_skipped'] == 1
+    assert len(result['items']) == 2
+    assert result['items'][1]['ai_analysis'] is None
 
 
 def add_sample_news():
@@ -223,7 +275,7 @@ def add_sample_news():
     app = create_app()
     
     with app.app_context():
-        print("\n📰 檢查並添加示例新聞數據...")
+        print("\n[News] 檢查並添加示例新聞數據...")
         
         # 檢查是否已有新聞
         existing_news = News.query.count()
@@ -271,28 +323,28 @@ def add_sample_news():
                         created_at=datetime.now() - timedelta(days=i)
                     )
                     db.session.add(news)
-                    print(f"   ✅ 已添加示例新聞：{news_data['title'][:50]}...")
+                    print(f"   [OK] 已添加示例新聞：{news_data['title'][:50]}...")
             
             try:
                 db.session.commit()
-                print("   ✅ 示例新聞添加完成！")
+                print("   [OK] 示例新聞添加完成！")
             except Exception as e:
-                print(f"   ❌ 示例新聞添加失敗：{e}")
+                print(f"   [Error] 示例新聞添加失敗：{e}")
                 db.session.rollback()
         else:
-            print("   ✅ 已有足夠的新聞數據，跳過添加示例數據")
+            print("   [OK] 已有足夠的新聞數據，跳過添加示例數據")
 
 
 def run_all_tests():
     """執行所有測試"""
-    print("🔍 開始完整功能測試...")
+    print("[Search] 開始完整功能測試...")
     print("=" * 60)
     
     # 1. 添加示例數據
     add_sample_news()
     
     # 2. 執行單元測試
-    print("\n🧪 執行單元測試...")
+    print("\n[Test] 執行單元測試...")
     suite = unittest.TestLoader().loadTestsFromTestCase(TestCrawlerSystem)
     runner = unittest.TextTestRunner(verbosity=1)
     runner.run(suite)
@@ -304,8 +356,8 @@ def run_all_tests():
     test_api_endpoints()
     
     print("\n" + "=" * 60)
-    print("🎉 完整功能測試完成！")
-    print("\n💡 手動測試建議：")
+    print("[Success] 完整功能測試完成！")
+    print("\n[Hint] 手動測試建議：")
     print("1. 開啟瀏覽器訪問 http://127.0.0.1:5000")
     print("2. 使用 admin / mis116isgood 登入管理後台")
     print("3. 在管理後台點擊「執行 RSS 爬蟲」測試按鈕")

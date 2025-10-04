@@ -1,7 +1,11 @@
 # 透過 r.jina.ai 讀取並節流
+import logging
 import time
 
 import requests
+
+
+logger = logging.getLogger(__name__)
 
 
 def fetch_readable(url, rpm=10):
@@ -14,11 +18,11 @@ def fetch_readable(url, rpm=10):
         response = requests.get(jina_url, timeout=20)
         
         if response.status_code != 200:
-            print(f"Jina Reader failed for {url}: {response.status_code}")
+            logger.warning("Jina Reader returned %s for %s", response.status_code, url)
             return ""
         
         return response.text
         
     except Exception as e:
-        print(f"Error fetching {url} via Jina: {e}")
+        logger.exception("Error fetching %s via Jina", url)
         return ""

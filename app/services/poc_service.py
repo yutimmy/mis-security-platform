@@ -1,10 +1,14 @@
 # POC 查詢服務：處理 Sploitus POC 查詢
 import json
+import logging
 from datetime import datetime
 
 from app.models.db import db
 from app.models.schema import News, JobRun, CvePoc
 from crawlers.sploitus import SploitusClient
+
+
+logger = logging.getLogger(__name__)
 
 
 class POCService:
@@ -66,7 +70,7 @@ class POCService:
                         continue
                     
                     # 搜尋 POC
-                    print(f"Searching POC for {cve_id}...")
+                    logger.info("Searching POC for %s", cve_id)
                     poc_links = self.sploitus_client.search_poc(cve_id)
                     
                     if poc_links:
@@ -94,14 +98,14 @@ class POCService:
                             'source': 'sploitus',
                             'cached': False
                         })
-                        print(f"Found {len(poc_links)} POCs for {cve_id}")
+                        logger.info("Found %s POC links for %s", len(poc_links), cve_id)
                     else:
                         not_found_cves.append(cve_id)
-                        print(f"No POC found for {cve_id}")
+                        logger.info("No POC found for %s", cve_id)
                 
                 except Exception as e:
                     error_msg = f"Error searching POC for {cve_id}: {str(e)}"
-                    print(error_msg)
+                    logger.exception("Error searching POC for %s", cve_id)
                     error_details.append(error_msg)
                     not_found_cves.append(cve_id)
             
@@ -158,7 +162,7 @@ class POCService:
             
         except Exception as e:
             error_msg = f'POC 查詢失敗：{str(e)}'
-            print(error_msg)
+            logger.exception("POC search failed for news %s", news_id)
             
             job_run.status = 'failed'
             job_run.ended_at = datetime.now()
@@ -222,6 +226,7 @@ class POCService:
                 }
                 
         except Exception as e:
+            logger.exception("POC search failed for %s", cve_id)
             return {
                 'success': False,
                 'message': f'POC 查詢失敗：{str(e)}',

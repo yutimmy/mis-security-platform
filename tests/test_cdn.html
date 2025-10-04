@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown 編輯器測試頁面</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/highlight.min.js" crossorigin="anonymous"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-4">Markdown 編輯器 CDN 測試</h1>
+        
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">CDN 載入狀態</h2>
+            <div id="cdnStatus" class="space-y-2"></div>
+        </div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-xl font-semibold mb-4">Markdown 輸入</h2>
+                <textarea id="markdown" class="w-full h-64 p-4 border rounded font-mono text-sm" placeholder="輸入 Markdown...">
+# 測試標題
+
+這是一段測試文字，支援 **粗體** 和 *斜體*。
+
+## 程式碼測試
+
+```python
+def hello():
+    print("Hello, World!")
+```
+
+## 列表測試
+
+- 項目 1
+- 項目 2
+- 項目 3
+
+## 表格測試
+
+| 欄位 1 | 欄位 2 |
+|--------|--------|
+| 內容 1 | 內容 2 |
+                </textarea>
+                <button onclick="updatePreview()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                    更新預覽
+                </button>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-xl font-semibold mb-4">預覽結果</h2>
+                <div id="preview" class="prose max-w-none h-64 overflow-y-auto p-4 border rounded"></div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-6 mt-6">
+            <h2 class="text-xl font-semibold mb-4">功能測試</h2>
+            <div id="testResults" class="space-y-2"></div>
+            <button onclick="runTests()" class="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                執行測試
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // 檢查 CDN 狀態
+        function checkCDNStatus() {
+            const status = {
+                'Marked.js': typeof marked !== 'undefined',
+                'DOMPurify': typeof DOMPurify !== 'undefined',
+                'Highlight.js': typeof hljs !== 'undefined'
+            };
+            
+            const statusDiv = document.getElementById('cdnStatus');
+            statusDiv.innerHTML = '';
+            
+            for (const [name, loaded] of Object.entries(status)) {
+                const div = document.createElement('div');
+                div.className = `flex items-center space-x-2 ${loaded ? 'text-green-600' : 'text-red-600'}`;
+                div.innerHTML = `
+                    <span class="text-2xl">${loaded ? '[OK]' : '[Fail]'}</span>
+                    <span class="font-medium">${name}: ${loaded ? '已載入' : '載入失敗'}</span>
+                `;
+                statusDiv.appendChild(div);
+            }
+        }
+
+        // 更新預覽
+        function updatePreview() {
+            const markdown = document.getElementById('markdown').value;
+            const preview = document.getElementById('preview');
+            
+            if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
+                preview.innerHTML = '<p class="text-red-500">CDN 庫未載入，無法預覽</p>';
+                return;
+            }
+            
+            try {
+                const rawHtml = marked.parse(markdown);
+                const cleanHtml = DOMPurify.sanitize(rawHtml);
+                preview.innerHTML = cleanHtml;
+                
+                // 高亮程式碼
+                if (typeof hljs !== 'undefined') {
+                    preview.querySelectorAll('pre code').forEach((block) => {
+                        hljs.highlightElement(block);
+                    });
+                }
+            } catch (error) {
+                preview.innerHTML = `<p class="text-red-500">預覽錯誤: ${error.message}</p>`;
+            }
+        }
+
+        // 執行測試
+        function runTests() {
+            const tests = [
+                {
+                    name: 'Marked.parse() 測試',
+                    test: () => {
+                        const result = marked.parse('# Test');
+                        return result.includes('<h1');
+                    }
+                },
+                {
+                    name: 'DOMPurify.sanitize() 測試',
+                    test: () => {
+                        const result = DOMPurify.sanitize('<script>alert("xss")</script><p>safe</p>');
+                        return !result.includes('script') && result.includes('safe');
+                    }
+                },
+                {
+                    name: 'Highlight.js 測試',
+                    test: () => {
+                        return typeof hljs !== 'undefined' && typeof hljs.highlightElement === 'function';
+                    }
+                },
+                {
+                    name: 'Marked GFM 支援測試',
+                    test: () => {
+                        const result = marked.parse('~~strikethrough~~');
+                        return result.includes('del') || result.includes('strike');
+                    }
+                },
+                {
+                    name: 'Marked 表格測試',
+                    test: () => {
+                        const result = marked.parse('| A | B |\n|---|---|\n| 1 | 2 |');
+                        return result.includes('<table');
+                    }
+                },
+                {
+                    name: 'XSS 防護測試',
+                    test: () => {
+                        const malicious = '<img src=x onerror=alert(1)>';
+                        const cleaned = DOMPurify.sanitize(malicious);
+                        return !cleaned.includes('onerror');
+                    }
+                }
+            ];
+            
+            const resultsDiv = document.getElementById('testResults');
+            resultsDiv.innerHTML = '';
+            
+            let passed = 0;
+            let failed = 0;
+            
+            tests.forEach(({ name, test }) => {
+                try {
+                    const result = test();
+                    if (result) {
+                        passed++;
+                        const div = document.createElement('div');
+                        div.className = 'flex items-center space-x-2 text-green-600';
+                        div.innerHTML = `<span class="text-2xl">[OK]</span><span>${name}</span>`;
+                        resultsDiv.appendChild(div);
+                    } else {
+                        failed++;
+                        const div = document.createElement('div');
+                        div.className = 'flex items-center space-x-2 text-red-600';
+                        div.innerHTML = `<span class="text-2xl">[Fail]</span><span>${name}</span>`;
+                        resultsDiv.appendChild(div);
+                    }
+                } catch (error) {
+                    failed++;
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center space-x-2 text-red-600';
+                    div.innerHTML = `<span class="text-2xl">[Fail]</span><span>${name}: ${error.message}</span>`;
+                    resultsDiv.appendChild(div);
+                }
+            });
+            
+            const summary = document.createElement('div');
+            summary.className = 'mt-4 p-4 bg-gray-100 rounded';
+            summary.innerHTML = `<strong>測試結果:</strong> ${passed} 通過, ${failed} 失敗`;
+            resultsDiv.appendChild(summary);
+        }
+
+        // 頁面載入時執行
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                checkCDNStatus();
+                updatePreview();
+            }, 500);
+        });
+    </script>
+</body>
+</html>

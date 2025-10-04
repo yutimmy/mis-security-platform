@@ -1,7 +1,13 @@
 # 路徑工具函數 - 確保所有腳本使用一致的數據庫路徑
+import logging
 import os
 import sys
 from pathlib import Path
+
+from .logging_config import configure_logging, get_logger
+
+
+logger = get_logger(__name__)
 
 
 def get_project_root():
@@ -49,8 +55,9 @@ def get_database_path():
 
 if __name__ == "__main__":
     # 測試功能
-    print(f"專案根目錄: {get_project_root()}")
-    print(f"當前工作目錄: {os.getcwd()}")
+    configure_logging()
+    logger.info("專案根目錄: %s", get_project_root())
+    logger.info("當前工作目錄: %s", os.getcwd())
     ensure_project_path()
-    print(f"切換後工作目錄: {os.getcwd()}")
-    print(f"數據庫路徑: {get_database_path()}")
+    logger.info("切換後工作目錄: %s", os.getcwd())
+    logger.info("數據庫路徑: %s", get_database_path())

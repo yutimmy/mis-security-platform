@@ -19,9 +19,7 @@
 
 ```bash
 # 克隆專案
-cd /path/to/your/workspace
-cp -r /Users/timmylin/Desktop/mis ./security-news-platform
-cd security-news-platform
+git clone https://github.com/yutimmy/mis-security-platform.git
 
 # 建立虛擬環境
 python3 -m venv .venv

@@ -5,8 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}資安情訊平臺{% endblock %}</title>
     
-    <!-- Tailwind CSS CDN -->
+    <!-- Tailwind CSS CDN - 開發版本（包含 @apply 支援）-->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 注意：在生產環境中應使用 PostCSS 編譯的 Tailwind 或 CLI 版本 -->
+    <script>
+        // 生產環境警告抑制（僅開發時使用）
+        tailwind.config = {
+            theme: {
+                extend: {}
+            }
+        }
+    </script>
     
     <!-- 自訂樣式 -->
     <style>

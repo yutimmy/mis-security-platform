@@ -30,6 +30,16 @@
         </div>
     </a>
     
+    <a href="{{ url_for('admin.posts') }}" class="bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-indigo-100 text-indigo-800">📝</div>
+            <div class="ml-3">
+                <p class="font-medium text-gray-900">文章管理</p>
+                <p class="text-sm text-gray-600">管理使用者文章</p>
+            </div>
+        </div>
+    </a>
+    
     <a href="{{ url_for('admin.jobs') }}" class="bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow">
         <div class="flex items-center">
             <div class="p-3 rounded-full bg-yellow-100 text-yellow-800">⚙️</div>

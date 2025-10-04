@@ -1,27 +1,46 @@
 # Google GenAI（google-genai）統一介面
 import json
+import logging
 import os
 
 import google.generativeai as genai
+
+from config import Config
+from utils.rate_limiter import RateLimiter
+
+
+logger = logging.getLogger(__name__)
+
+
+class RateLimitExceeded(RuntimeError):
+    """Raised when the GenAI client has exhausted its allowed call budget."""
 
 
 class GenAIClient:
     """Google GenAI 客戶端"""
     
-    def __init__(self, api_key=None, model="gemini-2.0-flash"):
+    def __init__(self, api_key=None, model="gemini-2.0-flash", max_rpm=None):
         self.api_key = api_key or os.getenv("GOOGLE_GENAI_API_KEY")
         self.model_name = model
+        rate_limit = max_rpm if max_rpm is not None else Config.GENAI_MAX_RPM
+        self.rate_limiter = RateLimiter(rate_limit) if rate_limit is not None else None
         
         if not self.api_key:
             raise ValueError("Google GenAI API key is required")
         
         genai.configure(api_key=self.api_key)
         self.model = genai.GenerativeModel(self.model_name)
-    
+
     def generate_analysis(self, text, news_title="", source=""):
         """
         生成新聞分析：摘要、翻譯、利用方式、關鍵字
         """
+        if self.rate_limiter and not self.rate_limiter.try_acquire():
+            logger.warning(
+                "GenAI rate limit reached; skipping analysis for %s", news_title[:50]
+            )
+            raise RateLimitExceeded("GenAI request rate limit exceeded")
+
         prompt = f"""
 請分析以下資安新聞，並以 JSON 格式回應：
 
@@ -69,8 +88,10 @@ class GenAIClient:
                     "keywords": []
                 }
                 
+        except RateLimitExceeded:
+            raise
         except Exception as e:
-            print(f"GenAI analysis failed: {e}")
+            logger.exception("GenAI analysis failed")
             return {
                 "summary": "AI 分析失敗",
                 "translation": "",
@@ -81,7 +102,13 @@ class GenAIClient:
     def test_connection(self):
         """測試 API 連線"""
         try:
+            if self.rate_limiter and not self.rate_limiter.try_acquire():
+                raise RateLimitExceeded("GenAI request rate limit exceeded")
             response = self.model.generate_content("請回覆：API 連線正常")
             return True, response.text
+        except RateLimitExceeded as e:
+            logger.warning("GenAI connection test skipped: %s", e)
+            return False, str(e)
         except Exception as e:
+            logger.exception("GenAI connection test failed")
             return False, str(e)

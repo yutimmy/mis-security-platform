@@ -15,7 +15,7 @@ def check_environment():
     # 檢查 .env 檔案
     env_file = ".env"
     if os.path.exists(env_file):
-        print(f"✓ .env 檔案存在")
+        print(f"[OK] .env 檔案存在")
         
         # 檢查必要的環境變數
         with open(env_file, 'r', encoding='utf-8') as f:
@@ -33,12 +33,12 @@ def check_environment():
                 missing_vars.append(var)
         
         if missing_vars:
-            print(f"✗ 缺少環境變數: {', '.join(missing_vars)}")
+            print(f"[Fail] 缺少環境變數: {', '.join(missing_vars)}")
             return False
         else:
-            print("✓ 所有必要環境變數已設置")
+            print("[OK] 所有必要環境變數已設置")
     else:
-        print(f"✗ .env 檔案不存在")
+        print(f"[Fail] .env 檔案不存在")
         return False
     
     return True
@@ -69,7 +69,7 @@ def check_database_path():
         return True
         
     except Exception as e:
-        print(f"✗ 數據庫路徑檢查失敗: {e}")
+        print(f"[Fail] 數據庫路徑檢查失敗: {e}")
         return False
 
 
@@ -81,17 +81,17 @@ def check_admin_config():
         from config import Config
         
         if not Config.DEFAULT_ADMIN_PASSWORD:
-            print("✗ 管理員密碼未設置")
+            print("[Fail] 管理員密碼未設置")
             return False
         
-        print(f"✓ 管理員用戶名: {Config.DEFAULT_ADMIN_USERNAME}")
-        print(f"✓ 管理員郵箱: {Config.DEFAULT_ADMIN_EMAIL}")
-        print("✓ 管理員密碼已設置")
+        print(f"[OK] 管理員用戶名: {Config.DEFAULT_ADMIN_USERNAME}")
+        print(f"[OK] 管理員郵箱: {Config.DEFAULT_ADMIN_EMAIL}")
+        print("[OK] 管理員密碼已設置")
         
         return True
         
     except Exception as e:
-        print(f"✗ 管理員配置檢查失敗: {e}")
+        print(f"[Fail] 管理員配置檢查失敗: {e}")
         return False
 
 
@@ -114,9 +114,9 @@ def test_imports():
     for module in test_modules:
         try:
             __import__(module)
-            print(f"✓ {module}")
+            print(f"[OK] {module}")
         except ImportError as e:
-            print(f"✗ {module}: {e}")
+            print(f"[Fail] {module}: {e}")
             failed_imports.append(module)
     
     return len(failed_imports) == 0
@@ -139,15 +139,15 @@ test_extractors()
         ], capture_output=True, text=True, cwd=os.getcwd())
         
         if result.returncode == 0:
-            print("✓ 擷取器測試通過")
+            print("[OK] 擷取器測試通過")
             print(result.stdout)
         else:
-            print("✗ 擷取器測試失敗")
+            print("[Fail] 擷取器測試失敗")
             print(result.stderr)
             return False
             
     except Exception as e:
-        print(f"✗ 測試運行失敗: {e}")
+        print(f"[Fail] 測試運行失敗: {e}")
         return False
     
     return True
@@ -174,11 +174,11 @@ def main():
     
     print("\n" + "=" * 50)
     if all_passed:
-        print("✓ 所有檢查通過！系統已準備就緒。")
+        print("[OK] 所有檢查通過！系統已準備就緒。")
         print("\n可以執行以下命令初始化數據庫：")
         print("python init_db.py")
     else:
-        print("✗ 部分檢查未通過，請修正後重新運行。")
+        print("[Fail] 部分檢查未通過，請修正後重新運行。")
     
     return all_passed
 

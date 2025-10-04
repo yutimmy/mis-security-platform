@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown 編輯器測試 - 即時預覽版</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Markdown 相關庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    
+    <style>
+        .preview-content {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+        }
+        
+        .preview-content h1,
+        .preview-content h2,
+        .preview-content h3 {
+            font-weight: 700;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+        }
+        
+        .preview-content h1 { font-size: 2em; }
+        .preview-content h2 { font-size: 1.5em; }
+        .preview-content h3 { font-size: 1.25em; }
+        
+        .preview-content p {
+            margin-bottom: 1em;
+        }
+        
+        .preview-content code {
+            background: #f6f8fa;
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        
+        .preview-content pre {
+            background: #f6f8fa;
+            padding: 1em;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 1em 0;
+        }
+        
+        .preview-content pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        .preview-content a {
+            color: #0969da;
+            text-decoration: none;
+        }
+        
+        .preview-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .preview-content blockquote {
+            border-left: 4px solid #d0d7de;
+            padding-left: 1em;
+            margin: 1em 0;
+            color: #57606a;
+        }
+        
+        .toast {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            padding: 1rem 1.5rem;
+            z-index: 10000;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .drag-over {
+            background-color: #eff6ff !important;
+            border: 2px dashed #3b82f6 !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-6">
+            <h1 class="text-3xl font-bold text-gray-900">Markdown 編輯器測試</h1>
+            <p class="text-gray-600 mt-2">即時預覽版 - 預覽區域預設顯示，不可關閉</p>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+            <!-- 工具列 -->
+            <div class="bg-gray-50 border-b border-gray-200 p-3 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <button type="button" onclick="insertMarkdown('**', '**', '粗體文字')" 
+                            class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded text-sm font-bold" 
+                            title="粗體 (Ctrl+B)">
+                        B
+                    </button>
+                    <button type="button" onclick="insertMarkdown('*', '*', '斜體文字')" 
+                            class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded text-sm italic" 
+                            title="斜體 (Ctrl+I)">
+                        I
+                    </button>
+                    <button type="button" onclick="insertMarkdown('`', '`', '程式碼')" 
+                            class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded text-sm font-mono" 
+                            title="行內程式碼">
+                        &lt;/&gt;
+                    </button>
+                    <button type="button" onclick="insertLink()" 
+                            class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded text-sm" 
+                            title="插入連結 (Ctrl+K)">
+                        🔗
+                    </button>
+                    <button type="button" onclick="insertHeading()" 
+                            class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded text-sm font-bold" 
+                            title="插入標題">
+                        H
+                    </button>
+                </div>
+
+                <div class="flex items-center space-x-3">
+                    <div class="text-sm text-gray-500">
+                        <span id="charCount">0</span> 字
+                    </div>
+                </div>
+            </div>
+
+            <!-- 編輯區域 -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-0">
+                <!-- 文字輸入區 -->
+                <div class="p-4 border-r border-gray-200" id="editorPane">
+                    <textarea 
+                        id="content" 
+                        class="w-full h-[600px] p-4 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                        placeholder="在此輸入 Markdown 格式的文章內容..."
+                    ># 歡迎使用 Markdown 編輯器
+
+這是一個測試文件，用來展示**即時預覽**功能。
+
+## 功能特色
+
+1. **即時預覽** - 預覽區域預設顯示
+2. **語法高亮** - 支援程式碼高亮
+3. **自動儲存** - 每 3 秒自動儲存草稿
+4. **拖拽上傳** - 支援圖片拖拽上傳
+
+## 程式碼範例
+
+```python
+def hello_world():
+    print("Hello, World!")
+```
+
+## 引用
+
+> 這是一段引用文字
+
+## 連結
+
+[GitHub](https://github.com)</textarea>
+                </div>
+
+                <!-- 預覽區 -->
+                <div id="previewPane" class="p-4 bg-gray-50">
+                    <div id="previewContent" class="preview-content h-[600px] overflow-y-auto p-4">
+                        <div class="text-center py-12 text-gray-400">
+                            <svg class="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            <p class="text-lg">載入中...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // 全域變數
+    let autoSaveTimer = null;
+    let contentTextarea = null;
+    let previewContent = null;
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        contentTextarea = document.getElementById('content');
+        previewContent = document.getElementById('previewContent');
+        
+        if (!contentTextarea) {
+            console.error('找不到編輯器元素');
+            return;
+        }
+
+        // 等待 CDN 載入
+        waitForCDN().then(() => {
+            console.log('CDN 庫已載入');
+            
+            // 綁定輸入事件 - 即時更新預覽
+            contentTextarea.addEventListener('input', function() {
+                updateCharCount();
+                updatePreview();
+                scheduleAutoSave();
+            });
+
+            // 綁定快捷鍵
+            contentTextarea.addEventListener('keydown', handleKeyboardShortcuts);
+
+            // 拖拽上傳
+            initializeDragDrop();
+
+            // 初始字數統計
+            updateCharCount();
+
+            // 初始化預覽
+            updatePreview();
+            
+            showToast('編輯器已就緒 [OK]', 'success');
+        });
+    });
+
+    // 等待 CDN 庫載入
+    function waitForCDN() {
+        return new Promise((resolve) => {
+            let attempts = 0;
+            const maxAttempts = 10;
+            
+            const checkCDN = () => {
+                if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+                    // 配置 marked
+                    if (marked.setOptions) {
+                        marked.setOptions({
+                            breaks: true,
+                            gfm: true,
+                            headerIds: true,
+                            mangle: false,
+                            sanitize: false,
+                            smartLists: true,
+                            smartypants: false
+                        });
+                    }
+                    resolve(true);
+                } else {
+                    attempts++;
+                    if (attempts < maxAttempts) {
+                        setTimeout(checkCDN, 200);
+                    } else {
+                        console.error('CDN 載入失敗');
+                        showToast('Markdown 解析器載入失敗', 'error');
+                        resolve(false);
+                    }
+                }
+            };
+            
+            checkCDN();
+        });
+    }
+
+    // 更新預覽
+    function updatePreview() {
+        if (!previewContent || typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
+            return;
+        }
+
+        const content = contentTextarea.value.trim();
+
+        if (!content) {
+            previewContent.innerHTML = `
+                <div class="text-center py-12 text-gray-400">
+                    <svg class="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <p class="text-lg">開始輸入以查看預覽</p>
+                </div>
+            `;
+            return;
+        }
+
+        try {
+            // 解析 Markdown
+            const rawHtml = marked.parse(content);
+            
+            // 清理 HTML
+            const cleanHtml = DOMPurify.sanitize(rawHtml, {
+                ALLOWED_TAGS: [
+                    'p', 'br', 'strong', 'em', 'u', 'del', 'mark',
+                    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                    'ul', 'ol', 'li', 'dl', 'dt', 'dd',
+                    'blockquote', 'pre', 'code',
+                    'a', 'img',
+                    'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
+                    'div', 'span', 'hr'
+                ],
+                ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id'],
+                KEEP_CONTENT: true
+            });
+
+            previewContent.innerHTML = cleanHtml;
+
+            // 高亮程式碼
+            if (typeof hljs !== 'undefined') {
+                previewContent.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+            }
+
+            // 外部連結設定
+            previewContent.querySelectorAll('a').forEach((link) => {
+                if (link.hostname !== window.location.hostname) {
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                }
+            });
+
+        } catch (error) {
+            console.error('預覽更新錯誤:', error);
+            previewContent.innerHTML = `
+                <div class="text-center py-12 text-red-500">
+                    <p class="text-lg font-medium">預覽解析錯誤</p>
+                    <p class="text-sm mt-2">${error.message}</p>
+                </div>
+            `;
+        }
+    }
+
+    // 更新字數統計
+    function updateCharCount() {
+        const charCount = document.getElementById('charCount');
+        if (charCount && contentTextarea) {
+            const count = contentTextarea.value.length;
+            charCount.textContent = count.toLocaleString();
+        }
+    }
+
+    // 插入 Markdown 標記
+    function insertMarkdown(before, after, placeholder) {
+        const start = contentTextarea.selectionStart;
+        const end = contentTextarea.selectionEnd;
+        const selectedText = contentTextarea.value.substring(start, end);
+        const textToInsert = selectedText || placeholder;
+        const newText = before + textToInsert + after;
+        
+        contentTextarea.setRangeText(newText, start, end, 'end');
+        contentTextarea.focus();
+        
+        if (!selectedText) {
+            contentTextarea.setSelectionRange(start + before.length, start + before.length + placeholder.length);
+        }
+        
+        contentTextarea.dispatchEvent(new Event('input'));
+    }
+
+    // 插入連結
+    function insertLink() {
+        const url = prompt('請輸入連結網址：');
+        if (url) {
+            const text = prompt('請輸入連結文字：') || url;
+            insertMarkdown('[', `](${url})`, text);
+        }
+    }
+
+    // 插入標題
+    function insertHeading() {
+        insertMarkdown('## ', '', '標題文字');
+    }
+
+    // 鍵盤快捷鍵
+    function handleKeyboardShortcuts(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+            e.preventDefault();
+            insertMarkdown('**', '**', '粗體文字');
+        }
+        
+        if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
+            e.preventDefault();
+            insertMarkdown('*', '*', '斜體文字');
+        }
+        
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            insertLink();
+        }
+    }
+
+    // 拖拽上傳
+    function initializeDragDrop() {
+        const editorPane = document.getElementById('editorPane');
+        
+        editorPane.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            editorPane.classList.add('drag-over');
+        });
+
+        editorPane.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            editorPane.classList.remove('drag-over');
+        });
+
+        editorPane.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            editorPane.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.type.startsWith('image/')) {
+                    showToast('拖拽上傳功能需要後端支援', 'info');
+                }
+            }
+        });
+    }
+
+    // 自動儲存
+    function scheduleAutoSave() {
+        if (autoSaveTimer) {
+            clearTimeout(autoSaveTimer);
+        }
+        
+        autoSaveTimer = setTimeout(() => {
+            const content = contentTextarea.value;
+            localStorage.setItem('draft_content', content);
+            localStorage.setItem('draft_time', Date.now());
+            console.log('草稿已自動儲存');
+        }, 3000);
+    }
+
+    // Toast 通知
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        
+        const colors = {
+            success: 'bg-green-50 text-green-800 border-green-200',
+            error: 'bg-red-50 text-red-800 border-red-200',
+            info: 'bg-blue-50 text-blue-800 border-blue-200'
+        };
+        
+        toast.className += ' border ' + (colors[type] || colors.info);
+        toast.textContent = message;
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+    </script>
+</body>
+</html>

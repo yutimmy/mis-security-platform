@@ -1,11 +1,13 @@
 # 圖片上傳服務
-import os
 import hashlib
+import os
 import uuid
 from datetime import datetime
+from pathlib import Path
+
+from flask import current_app
 from PIL import Image
 from werkzeug.utils import secure_filename
-from flask import current_app
 
 from ..models.db import db
 from ..models.schema import Image
@@ -15,7 +17,10 @@ class ImageService:
     """圖片上傳與管理服務"""
 
     def __init__(self):
-        self.upload_folder = current_app.config.get('UPLOAD_FOLDER', 'static/uploads/images')
+        uploads_config = current_app.config.get('UPLOAD_FOLDER', 'static/uploads/images')
+        self.app_root = Path(current_app.root_path)
+        self.upload_root = self.app_root / uploads_config
+        self.relative_upload_root = Path(uploads_config)
         self.allowed_types = current_app.config.get('ALLOWED_IMAGE_TYPES', 'image/png,image/jpeg,image/webp').split(',')
         self.max_size_mb = current_app.config.get('MAX_IMAGE_SIZE_MB', 1.5)
 
@@ -27,39 +32,39 @@ class ImageService:
                 return None, "檔案驗證失敗"
 
             # 確保上傳目錄存在
-            os.makedirs(self.upload_folder, exist_ok=True)
+            self.upload_root.mkdir(parents=True, exist_ok=True)
 
             # 產生唯一檔名
             file_ext = self._get_file_extension(file.filename)
             file_hash = self._generate_file_hash(file)
             filename = f"{file_hash}_{uuid.uuid4().hex[:8]}{file_ext}"
-            file_path = os.path.join(self.upload_folder, filename)
+            absolute_path = self.upload_root / filename
+            relative_path = self.relative_upload_root / filename
 
             # 檢查是否已存在相同檔案
-            existing_image = Image.query.filter_by(file_hash=file_hash).first()
+            existing_image = Image.query.filter(Image.file_path.contains(file_hash)).first()
             if existing_image:
                 return existing_image, "檔案已存在"
 
             # 儲存檔案
             file.seek(0)  # 重置檔案指標
-            file.save(file_path)
+            file.save(absolute_path)
 
             # 處理圖片（壓縮、產生縮圖等）
-            processed_info = self._process_image(file_path)
+            processed_info = self._process_image(absolute_path)
 
             # 記錄到資料庫
             image_record = Image(
-                filename=filename,
                 original_filename=secure_filename(file.filename),
-                file_path=file_path,
-                file_hash=file_hash,
-                file_size=os.path.getsize(file_path),
+                file_path=str(relative_path).replace('\\', '/'),
+                file_size=os.path.getsize(absolute_path),
                 mime_type=file.content_type,
                 width=processed_info.get('width'),
                 height=processed_info.get('height'),
-                uploaded_by=user_id,
+                user_id=user_id,
                 related_type=related_type,
                 related_id=related_id,
+                post_id=related_id if related_type == 'post' else None,
                 created_at=datetime.utcnow()
             )
 
@@ -84,8 +89,9 @@ class ImageService:
             # TODO: 加入角色權限檢查
 
             # 刪除實際檔案
-            if os.path.exists(image.file_path):
-                os.remove(image.file_path)
+            absolute_path = (self.app_root / image.file_path).resolve()
+            if absolute_path.exists():
+                absolute_path.unlink()
 
             # 從資料庫刪除
             db.session.delete(image)
@@ -106,12 +112,12 @@ class ImageService:
 
         # 相對於靜態檔案的路徑
         relative_path = image.file_path.replace('static/', '')
-        return f"/{relative_path}"
+        return f"/{relative_path}" if not relative_path.startswith('/') else relative_path
 
     def get_user_images(self, user_id, page=1, per_page=20):
         """取得使用者上傳的圖片"""
         return Image.query.filter_by(
-            uploaded_by=user_id
+            user_id=user_id
         ).order_by(
             Image.created_at.desc()
         ).paginate(

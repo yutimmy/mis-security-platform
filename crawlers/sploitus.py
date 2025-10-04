@@ -1,9 +1,13 @@
 # 手動 POC 查詢（輸入 CVE → 回傳 POC 連結）
+import logging
 import re
 import time
 
 import requests
 from bs4 import BeautifulSoup
+
+
+logger = logging.getLogger(__name__)
 
 
 def search_sploitus_poc(cve_id, max_links=3):
@@ -18,14 +22,14 @@ def search_sploitus_poc(cve_id, max_links=3):
         list: POC 連結清單
     """
     if not cve_id or not cve_id.startswith('CVE-'):
-        print(f"Invalid CVE format: {cve_id}")
+        logger.warning("Invalid CVE format: %s", cve_id)
         return []
     
     try:
         # 簡單的速率限制
         time.sleep(2)
         
-        print(f"Searching Sploitus for {cve_id}...")
+        logger.info("Searching Sploitus for %s", cve_id)
         
         # 使用舊的搜尋方式 - 直接訪問帶有 query 參數的頁面
         search_query = cve_id.upper()
@@ -51,10 +55,10 @@ def search_sploitus_poc(cve_id, max_links=3):
         session = requests.Session()
         response = session.get(search_url, headers=headers, timeout=20)
         
-        print(f"Sploitus response status: {response.status_code}")
-        
+        logger.debug("Sploitus response status for %s: %s", cve_id, response.status_code)
+
         if response.status_code != 200:
-            print(f"Sploitus search failed for {cve_id}: HTTP {response.status_code}")
+            logger.warning("Sploitus search failed for %s with HTTP %s", cve_id, response.status_code)
             # 如果無法訪問，返回一個搜尋URL作為替代
             return [search_url]
         
@@ -109,23 +113,23 @@ def search_sploitus_poc(cve_id, max_links=3):
         # 去重並限制數量
         unique_links = list(dict.fromkeys(poc_links))[:max_links]
         
-        print(f"Found {len(unique_links)} POC links for {cve_id}")
+        logger.info("Found %s POC links for %s", len(unique_links), cve_id)
         for i, link in enumerate(unique_links, 1):
-            print(f"  {i}. {link}")
-        
+            logger.debug("POC %s for %s: %s", i, cve_id, link)
+
         # 如果沒有找到任何連結，返回搜尋結果頁面
         if not unique_links:
-            print(f"No direct POC links found for {cve_id}, returning search URL")
+            logger.info("No direct POC links for %s; returning search URL", cve_id)
             return [search_url]
-        
+
         return unique_links
         
     except requests.RequestException as e:
-        print(f"Network error searching POC for {cve_id}: {e}")
+        logger.warning("Network error searching POC for %s: %s", cve_id, e)
         # 網路錯誤時也返回搜尋URL
         return [f"https://sploitus.com/?query={cve_id.upper()}"]
     except Exception as e:
-        print(f"Error searching POC for {cve_id}: {e}")
+        logger.exception("Unhandled error searching POC for %s: %s", cve_id, e)
         return []
 
 
@@ -143,14 +147,14 @@ def batch_search_pocs(cve_list, delay=2):
     results = {}
     
     for cve_id in cve_list:
-        print(f"Searching POC for {cve_id}...")
+        logger.info("Batch search for %s", cve_id)
         poc_links = search_sploitus_poc(cve_id)
         results[cve_id] = poc_links
         
         if poc_links:
-            print(f"  Found {len(poc_links)} POC(s)")
+            logger.debug("Found %s POC link(s) for %s", len(poc_links), cve_id)
         else:
-            print(f"  No POC found")
+            logger.debug("No POC links identified for %s", cve_id)
         
         # 延遲以避免被封
         if delay > 0:

@@ -1,0 +1,312 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}文章管理 - 後台管理{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- 頁面標題 -->
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900">文章管理</h1>
+        <p class="text-gray-600 mt-2">管理所有使用者發布的文章</p>
+    </div>
+
+    <!-- 篩選與搜尋 -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <!-- 狀態篩選 -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">狀態</label>
+                <select name="status" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onchange="this.form.submit()">
+                    <option value="" {% if not current_status %}selected{% endif %}>全部</option>
+                    <option value="published" {% if current_status == 'published' %}selected{% endif %}>已發布</option>
+                    <option value="draft" {% if current_status == 'draft' %}selected{% endif %}>草稿</option>
+                </select>
+            </div>
+
+            <!-- 作者篩選 -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">作者</label>
+                <select name="author" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onchange="this.form.submit()">
+                    <option value="">全部作者</option>
+                    {% for author_id, author_name in authors %}
+                    <option value="{{ author_id }}" {% if current_author|string == author_id|string %}selected{% endif %}>
+                        {{ author_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- 搜尋 -->
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-2">搜尋</label>
+                <div class="flex">
+                    <input type="text" 
+                           name="search" 
+                           value="{{ search_query or '' }}"
+                           placeholder="搜尋標題或內容..."
+                           class="flex-1 px-4 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button type="submit" 
+                            class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-r-lg font-medium">
+                        搜尋
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <!-- 清除篩選 -->
+        {% if current_status or current_author or search_query %}
+        <div class="mt-4">
+            <a href="{{ url_for('admin.posts') }}" 
+               class="text-sm text-blue-600 hover:text-blue-800">
+                清除所有篩選條件
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 文章列表 -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        {% if posts_list.items %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            標題
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            作者
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            分類
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            狀態
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            觀看次數
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            更新時間
+                        </th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            操作
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for post in posts_list.items %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center">
+                                <div>
+                                    <div class="text-sm font-medium text-gray-900">
+                                        <a href="{{ url_for('posts.view', post_id=post.id) }}" 
+                                           target="_blank"
+                                           class="hover:text-blue-600">
+                                            {{ post.title }}
+                                        </a>
+                                    </div>
+                                    <div class="text-sm text-gray-500 truncate max-w-md">
+                                        {{ post.content[:100] }}...
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">
+                                {% set author = post.author %}
+                                {{ author.username if author else '未知' }}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if post.category %}
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                {{ post.category }}
+                            </span>
+                            {% else %}
+                            <span class="text-sm text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if post.is_published %}
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                已發布
+                            </span>
+                            {% else %}
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                草稿
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ post.views or 0 }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ post.updated_at.strftime('%Y-%m-%d') if post.updated_at else '-' }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div class="flex items-center justify-end space-x-2">
+                                <!-- 查看 -->
+                                <a href="{{ url_for('posts.view', post_id=post.id) }}" 
+                                   target="_blank"
+                                   class="text-blue-600 hover:text-blue-900" 
+                                   title="查看">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                    </svg>
+                                </a>
+
+                                <!-- 編輯 -->
+                                <a href="{{ url_for('posts.edit', post_id=post.id) }}" 
+                                   class="text-indigo-600 hover:text-indigo-900" 
+                                   title="編輯">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                    </svg>
+                                </a>
+
+                                <!-- 切換發布狀態 -->
+                                <button onclick="togglePublish({{ post.id }}, {{ 'true' if post.is_published else 'false' }})" 
+                                        class="text-orange-600 hover:text-orange-900" 
+                                        title="{{ '取消發布' if post.is_published else '發布' }}">
+                                    {% if post.is_published %}
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                                    </svg>
+                                    {% else %}
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                    {% endif %}
+                                </button>
+
+                                <!-- 刪除 -->
+                                <button onclick="deletePost({{ post.id }})" 
+                                        class="text-red-600 hover:text-red-900" 
+                                        title="刪除">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 分頁 -->
+        {% if posts_list.pages > 1 %}
+        <div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-700">
+                    顯示第 <span class="font-medium">{{ posts_list.per_page * (posts_list.page - 1) + 1 }}</span>
+                    到 <span class="font-medium">{{ [posts_list.per_page * posts_list.page, posts_list.total]|min }}</span>
+                    筆，共 <span class="font-medium">{{ posts_list.total }}</span> 筆
+                </div>
+                <div class="flex space-x-2">
+                    {% if posts_list.has_prev %}
+                    <a href="{{ url_for('admin.posts', page=posts_list.prev_num, status=current_status, author=current_author, search=search_query) }}" 
+                       class="px-3 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                        上一頁
+                    </a>
+                    {% endif %}
+                    
+                    <span class="px-3 py-2 bg-blue-600 text-white rounded-md text-sm font-medium">
+                        {{ posts_list.page }}
+                    </span>
+                    
+                    {% if posts_list.has_next %}
+                    <a href="{{ url_for('admin.posts', page=posts_list.next_num, status=current_status, author=current_author, search=search_query) }}" 
+                       class="px-3 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                        下一頁
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-12">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-gray-900">目前沒有文章</h3>
+            <p class="mt-1 text-sm text-gray-500">
+                {% if current_status or current_author or search_query %}
+                沒有符合篩選條件的文章
+                {% else %}
+                系統中還沒有任何文章
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+// 切換發布狀態
+function togglePublish(postId, isPublished) {
+    const action = isPublished ? '取消發布' : '發布';
+    
+    if (!confirm(`確定要${action}這篇文章嗎？`)) {
+        return;
+    }
+
+    fetch(`/admin/posts/${postId}/toggle-publish`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.code === 0) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('操作失敗：' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('操作失敗，請稍後重試');
+    });
+}
+
+// 刪除文章
+function deletePost(postId) {
+    if (!confirm('確定要刪除這篇文章嗎？此操作無法復原！')) {
+        return;
+    }
+
+    fetch(`/admin/posts/${postId}/delete`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.code === 0) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('刪除失敗：' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('刪除失敗，請稍後重試');
+    });
+}
+</script>
+{% endblock %}

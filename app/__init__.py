@@ -4,11 +4,14 @@ import os
 from flask import Flask
 
 from .models.db import init_db
+from utils.logging_config import configure_logging
 
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object("config.Config")
+
+    configure_logging(app)
 
     init_db(app)
 
