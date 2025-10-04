@@ -35,11 +35,10 @@ class GenAIClient:
         """
         生成新聞分析：摘要、翻譯、利用方式、關鍵字
         """
-        if self.rate_limiter and not self.rate_limiter.try_acquire():
-            logger.warning(
-                "GenAI rate limit reached; skipping analysis for %s", news_title[:50]
-            )
-            raise RateLimitExceeded("GenAI request rate limit exceeded")
+        # 等待直到速率限制允許請求（阻塞式）
+        if self.rate_limiter:
+            self.rate_limiter.acquire()
+            logger.debug("Acquired rate limit slot for %s", news_title[:50])
 
         prompt = f"""
 請分析以下資安新聞，並以 JSON 格式回應：
@@ -102,13 +101,10 @@ class GenAIClient:
     def test_connection(self):
         """測試 API 連線"""
         try:
-            if self.rate_limiter and not self.rate_limiter.try_acquire():
-                raise RateLimitExceeded("GenAI request rate limit exceeded")
+            if self.rate_limiter:
+                self.rate_limiter.acquire()
             response = self.model.generate_content("請回覆：API 連線正常")
             return True, response.text
-        except RateLimitExceeded as e:
-            logger.warning("GenAI connection test skipped: %s", e)
-            return False, str(e)
         except Exception as e:
             logger.exception("GenAI connection test failed")
             return False, str(e)

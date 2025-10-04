@@ -7,7 +7,7 @@ import feedparser
 
 from .cleaners import clean_html_content, normalize_text
 from .extractors import extract_cves, extract_emails
-from .genai_client import GenAIClient, RateLimitExceeded
+from .genai_client import GenAIClient
 from .jina_reader import fetch_readable
 
 
@@ -90,11 +90,9 @@ def process_rss_feed(rss_url, source_name, genai_client=None, jina_rpm=10):
                             clean_content, title, source_name
                         )
                         result['ai_requests'] += 1
-                    except RateLimitExceeded:
-                        result['ai_skipped'] += 1
-                        logger.info(
-                            "Skipped AI analysis for %s due to rate limit", title[:50]
-                        )
+                    except Exception as e:
+                        logger.exception("AI analysis failed for %s: %s", title[:50], e)
+                        result['errors'] += 1
 
                 # 構建結果項目
                 item_data = {

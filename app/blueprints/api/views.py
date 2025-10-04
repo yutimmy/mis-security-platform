@@ -1,12 +1,15 @@
 # API 端點：JSON 回應
+import logging
 from flask import Blueprint, jsonify, request, session
 from datetime import datetime
 
+from app.models.db import db
 from app.models.schema import News, RssSource, JobRun
 from app.services.rss_service import RSSService
 from app.services.poc_service import POCService
 
 
+logger = logging.getLogger(__name__)
 api_bp = Blueprint('api', __name__)
 
 
@@ -150,7 +153,12 @@ def trigger_rss_crawl():
         return api_response(403, "權限不足")
     
     try:
-        data = request.get_json() or {}
+        # 嘗試從 JSON 或 form 取得資料
+        if request.is_json:
+            data = request.get_json() or {}
+        else:
+            data = request.form.to_dict()
+        
         rss_id = data.get('rss_id')
         
         rss_service = RSSService()
@@ -173,7 +181,86 @@ def trigger_rss_crawl():
             })
             
     except Exception as e:
-        return api_response(500, f"執行RSS爬蟲時發生錯誤：{str(e)}")
+        import traceback
+        error_detail = traceback.format_exc()
+        return api_response(500, f"執行RSS爬蟲時發生錯誤：{str(e)}", {"error": error_detail})
+
+
+@api_bp.route('/jobs/ai', methods=['POST'])
+def trigger_ai_analysis():
+    """觸發 AI 分析（批次處理沒有 AI 內容的新聞）"""
+    if 'user_id' not in session:
+        return api_response(401, "需要登入")
+    
+    if session.get('role') not in ['admin', 'user']:
+        return api_response(403, "權限不足")
+    
+    try:
+        from datetime import datetime
+        from app.models.schema import News
+        from app.services.rss_service import RSSService
+        
+        # 記錄任務開始
+        job_run = JobRun(
+            job_type='ai_analysis',
+            target='all',
+            started_at=datetime.now(),
+            status='running'
+        )
+        db.session.add(job_run)
+        db.session.commit()
+        
+        # 找出所有沒有 AI 內容的新聞
+        news_list = News.query.filter(
+            (News.ai_content == None) | (News.ai_content == '')
+        ).limit(100).all()  # 限制一次處理 100 筆
+        
+        if not news_list:
+            job_run.status = 'success'
+            job_run.ended_at = datetime.now()
+            job_run.inserted_count = 0
+            db.session.commit()
+            return api_response(200, '沒有需要分析的新聞', {'job_run_id': job_run.id})
+        
+        rss_service = RSSService()
+        success_count = 0
+        error_count = 0
+        
+        # Rate limiter 會自動處理等待，不需要手動延遲
+        for news in news_list:
+            try:
+                result = rss_service.rerun_ai_analysis(news.id)
+                if result['success']:
+                    success_count += 1
+                else:
+                    error_count += 1
+            except Exception as e:
+                logger.exception("AI analysis failed for news %s", news.id)
+                error_count += 1
+                continue
+        
+        # 更新任務記錄
+        job_run.status = 'success' if error_count == 0 else 'partial'
+        job_run.ended_at = datetime.now()
+        job_run.inserted_count = success_count
+        job_run.error_count = error_count
+        db.session.commit()
+        
+        return api_response(200, f'AI 分析完成：成功 {success_count} 項，失敗 {error_count} 項', {
+            'job_run_id': job_run.id,
+            'success_count': success_count,
+            'error_count': error_count
+        })
+        
+    except Exception as e:
+        import traceback
+        error_detail = traceback.format_exc()
+        if 'job_run' in locals():
+            job_run.status = 'failed'
+            job_run.ended_at = datetime.now()
+            job_run.error_count = 1
+            db.session.commit()
+        return api_response(500, f"執行AI分析時發生錯誤：{str(e)}", {"error": error_detail})
 
 
 @api_bp.route('/jobs/ai-rerun', methods=['POST'])

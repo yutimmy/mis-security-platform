@@ -1,678 +1,428 @@
 {% extends "layouts/base.html" %}
 
-{% block title %}新聞列表 - 資安情訊平臺{% endblock %}
+{% block title %}資安情訊總覽{% endblock %}
 
 {% block content %}
-<!-- 主容器 - 全寬設計 -->
-<div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-    <div class="w-full px-4 py-6 lg:py-8">
-        <!-- 頁面標題區 -->
-        <div class="mb-8 text-center">
-            <h1 class="text-3xl lg:text-4xl font-bold text-gray-900 mb-2">
-                🔒 最新資安情訊
-            </h1>
-            <p class="text-gray-600 text-lg">掌握最新的資安動態與威脅情報</p>
-        </div>
+<div class="min-h-screen">
+    <div class="mx-auto w-full space-y-8">
+        <!-- Hero Section with Stats -->
+        <section class="rounded-3xl border border-slate-200/70 bg-gradient-to-br from-white via-blue-50/30 to-purple-50/30 shadow-xl backdrop-blur-sm">
+            <div class="space-y-8 px-6 py-8 sm:px-10 sm:py-10 lg:px-12 lg:py-12">
+                <div class="space-y-4">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <span class="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-100 to-purple-100 px-4 py-1.5 text-sm font-semibold uppercase tracking-wide text-blue-800 shadow-sm">
+                            <span class="h-2 w-2 animate-pulse rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50"></span>
+                            Threat Intel Hub
+                        </span>
+                        <span class="text-sm text-slate-500">即時更新</span>
+                    </div>
+                    <h1 class="text-3xl font-extrabold leading-tight text-slate-900 sm:text-4xl lg:text-5xl xl:text-6xl">
+                        掌握全球資安威脅與攻擊態勢
+                    </h1>
+                    <p class="max-w-3xl text-base text-slate-600 sm:text-lg">
+                        即時聚合多來源的資安情報，搭配 AI 摘要快速掌握重點、縮短情資分析時間。
+                    </p>
+                </div>
+                <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+                    {% for card in stat_cards %}
+                    <div class="group relative overflow-hidden rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-300 hover:bg-white hover:shadow-xl">
+                        <div class="absolute right-0 top-0 h-20 w-20 -translate-y-10 translate-x-10 rounded-full bg-gradient-to-br from-blue-500/10 to-purple-500/10 blur-2xl transition-transform duration-300 group-hover:translate-x-8 group-hover:translate-y-8"></div>
+                        <p class="relative text-xs font-medium uppercase tracking-wide text-slate-500">{{ card.label }}</p>
+                        <p class="relative mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">{{ card.value }}</p>
+                        {% if card.caption %}
+                        <p class="relative mt-1 text-xs text-slate-500">{{ card.caption }}</p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
 
-        <div class="flex flex-col lg:flex-row gap-6">
-            <!-- 左側搜尋欄 - 固定寬度，手機版可摺疊 -->
-            <div class="w-full lg:w-80 lg:flex-shrink-0">
-                <!-- 手機版摺疊按鈕 -->
-                <div class="lg:hidden mb-4">
-                    <button id="mobile-filter-toggle" class="w-full bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 flex items-center justify-center shadow-sm">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                        </svg>
-                        搜尋與篩選
-                    </button>
+        <!-- Search & Filter Section -->
+        <section class="relative">
+            <form method="GET" data-role="news-filters" action="{{ url_for('public.index') }}" class="space-y-6 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-slate-200/60 sm:p-8">
+                <!-- Main Search Bar -->
+                <div class="space-y-2">
+                    <label for="search" class="block text-sm font-semibold text-slate-700">快速搜尋</label>
+                    <div class="relative">
+                        <input type="text" id="search" name="q" value="{{ filters.q | default('') | e }}" placeholder="搜尋標題、內文、CVE 編號..." class="w-full rounded-2xl border border-slate-300 bg-white px-5 py-3.5 pr-32 text-base shadow-sm transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:ring-offset-0">
+                        <button type="submit" class="absolute inset-y-1.5 right-1.5 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-2 text-sm font-semibold text-white shadow-md transition hover:from-blue-700 hover:to-blue-800 hover:shadow-lg">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            <span class="hidden sm:inline">搜尋</span>
+                        </button>
+                    </div>
                 </div>
                 
-                <div id="search-panel" class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 sticky top-24 hidden lg:block">
-                    <h3 class="text-lg font-semibold mb-6 text-gray-900 flex items-center">
-                        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                <!-- Advanced Filters -->
+                <details class="group" {% if filters.source or filters.date_from or filters.date_to %}open{% endif %}>
+                    <summary class="flex cursor-pointer items-center justify-between rounded-xl bg-slate-50 px-4 py-3 font-medium text-slate-700 transition hover:bg-slate-100">
+                        <span class="flex items-center gap-2">
+                            <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                            </svg>
+                            進階篩選
+                        </span>
+                        <svg class="h-5 w-5 text-slate-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
-                        搜尋篩選
-                    </h3>
-                    
-                    <form method="GET" action="{{ url_for('public.index') }}" class="space-y-5">
-                        <!-- 搜尋框 -->
+                    </summary>
+                    <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         <div>
-                            <label for="search" class="block text-sm font-medium text-gray-700 mb-2">關鍵字搜尋</label>
-                            <div class="relative">
-                                <input type="text" id="search" name="q" value="{{ search_query }}" 
-                                       placeholder="搜尋標題、內容、CVE..." 
-                                       class="w-full px-4 py-3 pl-10 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
-                                <svg class="w-5 h-5 text-gray-400 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                </svg>
-                            </div>
-                        </div>
-                        
-                        <!-- 來源篩選 -->
-                        <div>
-                            <label for="source" class="block text-sm font-medium text-gray-700 mb-2">新聞來源</label>
-                            <select id="source" name="source" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                            <label for="source" class="block text-sm font-medium text-slate-600">新聞來源</label>
+                            <select id="source" name="source" class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-sm transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
                                 <option value="">全部來源</option>
                                 {% for source in sources %}
-                                    <option value="{{ source.source }}" {% if current_source == source.source %}selected{% endif %}>
-                                        {{ source.name }}
-                                    </option>
+                                <option value="{{ source.source }}" {% if filters.source == source.source %}selected{% endif %}>
+                                    {{ source.name }}
+                                </option>
                                 {% endfor %}
                             </select>
                         </div>
-                        
-                        <!-- 日期篩選 -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">日期範圍</label>
-                            <div class="grid grid-cols-2 gap-2">
-                                <input type="date" name="date_from" class="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <input type="date" name="date_to" class="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            </div>
+                            <label for="date_from" class="block text-sm font-medium text-slate-600">起始日期</label>
+                            <input type="date" id="date_from" name="date_from" value="{{ filters.date_from | default('') | e }}" class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-sm transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
                         </div>
-                        
-                        <div class="flex flex-col gap-2">
-                            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md">
-                                <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                </svg>
-                                搜尋
-                            </button>
-                            <a href="{{ url_for('public.index') }}" class="w-full text-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-xl transition-all duration-200 text-sm">
-                                清除篩選
-                            </a>
-                        </div>
-                    </form>
-                </div>
-            </div>
-            
-            <!-- 新聞列表 -->
-            <div class="lg:w-3/4">
-                <!-- 統計資訊 -->
-                <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
-                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                        <div class="flex items-center space-x-4">
-                            <div class="bg-blue-100 p-3 rounded-xl">
-                                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h2 class="text-2xl lg:text-3xl font-bold text-gray-900">{{ news_list.total }}</h2>
-                                <p class="text-gray-600">則最新資安新聞</p>
-                            </div>
-                        </div>
-                        <div class="text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-xl">
-                            第 {{ news_list.page }} / {{ news_list.pages }} 頁
+                        <div>
+                            <label for="date_to" class="block text-sm font-medium text-slate-600">結束日期</label>
+                            <input type="date" id="date_to" name="date_to" value="{{ filters.date_to | default('') | e }}" class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-sm transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
                         </div>
                     </div>
-                </div>
+                </details>
                 
-                <!-- 新聞卡片網格列表 - 3個一列 -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
+                {% if has_filters %}
+                <div class="flex items-center justify-between border-t border-slate-200 pt-4">
+                    <span class="text-sm text-slate-600">已套用篩選條件</span>
+                    <a href="{{ url_for('public.index') }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-400 hover:bg-slate-50">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        清除所有
+                    </a>
+                </div>
+                {% endif %}
+            </form>
+        </section>
+
+        <!-- Main Content Grid -->
+        <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)] xl:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
+            <!-- News Cards Grid - 3 columns on desktop -->
+            <div class="space-y-6">
+                {% if news_list.items %}
+                <!-- News Grid: 1 col mobile, 2 col tablet, 3 col desktop -->
+                <div class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
                     {% for news in news_list.items %}
-                        <article class="bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 overflow-hidden group h-full flex flex-col">
-                            <!-- 新聞標題區 -->
-                            <div class="p-4 pb-3 flex-1 flex flex-col">
-                                <!-- 標題 -->
-                                <h2 class="text-base lg:text-lg font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
-                                    <a href="{{ url_for('public.news_detail', news_id=news.id) }}" class="hover:underline">
-                                        {{ news.title or '無標題' }}
-                                    </a>
-                                </h2>
-                                
-                                <!-- 元資訊與標籤區 -->
-                                <div class="flex flex-col gap-2 mb-3">
-                                    <!-- 基本資訊 -->
-                                    <div class="flex flex-wrap items-center gap-1">
-                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 011 1v1m2-1h2a2 2 0 012 2v10a2 2 0 01-2 2h-2m-2-4V9a2 2 0 00-2-2H7a2 2 0 00-2 2v2m3 4a3 3 0 100-6 3 3 0 000 6z"></path>
-                                            </svg>
-                                            {{ news.source }}
-                                        </span>
-                                        <span class="inline-flex items-center text-xs text-gray-500">
-                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3a1 1 0 012-2h4a1 1 0 012 2v4h3a2 2 0 012 2v1a1 1 0 01-1 1v-1a2 2 0 00-2-2H6a2 2 0 00-2 2v1a1 1 0 01-1-1V9a2 2 0 012-2h3z"></path>
-                                            </svg>
-                                            {{ news.created_at.strftime('%m月%d日') if news.created_at else '' }}
-                                        </span>
-                                        {% if news.ai_content %}
-                                            <span class="inline-flex items-center px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
-                                                </svg>
-                                                AI
-                                            </span>
-                                        {% endif %}
-                                    </div>
-                                    
-                                    <!-- CVE 標籤區 -->
-                                    {% if news.cve_id %}
-                                        {% set cve_list = news.cve_id.split(',') %}
-                                        <div class="flex flex-wrap gap-1">
-                                            {% for cve in cve_list[:2] %}
-                                                <span class="inline-flex items-center px-1.5 py-0.5 bg-red-100 text-red-800 rounded text-xs font-bold">
-                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 14.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                                                    </svg>
-                                                    {{ cve.strip() }}
-                                                </span>
-                                            {% endfor %}
-                                            {% if cve_list|length > 2 %}
-                                                <span class="inline-flex items-center px-1.5 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-medium">
-                                                    +{{ cve_list|length - 2 }}
-                                                </span>
-                                            {% endif %}
-                                            {% if news.poc_link %}
-                                                <span class="inline-flex items-center px-1.5 py-0.5 bg-green-100 text-green-800 rounded text-xs font-bold">
-                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                                    </svg>
-                                                    POC
-                                                </span>
-                                            {% endif %}
-                                        </div>
-                                    {% endif %}
-                                </div>
-                                
-                                <!-- 內容預覽 -->
-                                {% if news.content %}
-                                    <div class="bg-gray-50 rounded-lg p-3 mb-3 flex-1">
-                                        <p class="text-gray-700 text-sm leading-relaxed line-clamp-3">
-                                            {{ news.content[:120] }}{% if news.content|length > 120 %}...{% endif %}
-                                        </p>
-                                    </div>
-                                {% endif %}
-                            </div>
-                            
-                            <!-- 底部操作區 -->
-                            <div class="px-4 py-3 bg-gray-50 border-t border-gray-100 mt-auto">
-                                <div class="flex flex-col gap-2">
-                                    <div class="flex gap-2">
-                                        <a href="{{ url_for('public.news_detail', news_id=news.id) }}" 
-                                           class="inline-flex items-center justify-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200 shadow-sm hover:shadow-md font-medium text-sm flex-1">
-                                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                            </svg>
-                                            詳情
-                                        </a>
-                                        
-                                        <a href="{{ news.link }}" target="_blank" 
-                                           class="inline-flex items-center justify-center px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-all duration-200 font-medium text-sm flex-1">
-                                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                                            </svg>
-                                            原文
-                                        </a>
-                                    </div>
-                                    
-                                    <!-- POC 查詢按鈕 -->
-                                    {% if news.cve_id %}
-                                        {% if session.user_id %}
-                                            <button onclick="queryPOC({{ news.id }}, '{{ news.cve_id }}')" 
-                                                    class="inline-flex items-center justify-center px-3 py-2 bg-orange-100 hover:bg-orange-200 text-orange-700 hover:text-orange-800 rounded-lg transition-all duration-200 font-medium text-sm w-full"
-                                                    id="poc-btn-{{ news.id }}">
-                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                                </svg>
-                                                查詢 POC
-                                            </button>
-                                        {% else %}
-                                            <button class="inline-flex items-center justify-center px-3 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed text-sm w-full" 
-                                                    title="請先登入">
-                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                                                </svg>
-                                                查詢 POC
-                                            </button>
-                                        {% endif %}
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </article>
-                    {% else %}
-                        <!-- 空狀態 -->
-                        <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-12 text-center">
-                            <div class="mb-6">
-                                <svg class="mx-auto h-16 w-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                </svg>
-                            </div>
-                            <h3 class="text-2xl font-bold text-gray-900 mb-2">暫無相關新聞</h3>
-                            <p class="text-gray-600 mb-6">
-                                {% if search_query or current_source %}
-                                    沒有找到符合條件的新聞，請嘗試調整搜尋條件
-                                {% else %}
-                                    目前還沒有任何新聞，請稍後再來查看
-                                {% endif %}
-                            </p>
-                            {% if search_query or current_source %}
-                                <a href="{{ url_for('public.index') }}" class="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all duration-200 shadow-sm hover:shadow-md font-medium">
-                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    <article class="group flex flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-md transition-all duration-300 hover:-translate-y-2 hover:border-blue-300 hover:shadow-2xl">
+                        <!-- Card Header -->
+                        <div class="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-blue-50/30 px-5 py-4">
+                            <div class="flex flex-wrap items-center gap-2 text-xs">
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 font-medium text-slate-700 shadow-sm ring-1 ring-slate-200">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
+                                    {{ source_lookup.get(news.source, news.source or '未分類') }}
+                                </span>
+                                <time datetime="{{ news.created_at.isoformat() }}" class="text-slate-500">
+                                    {{ news.created_at.strftime('%m/%d %H:%M') }}
+                                </time>
+                                {% if news.is_ai_generated %}
+                                <span class="ml-auto inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-emerald-100 to-green-100 px-2.5 py-1 font-semibold text-emerald-700">
+                                    <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                                     </svg>
-                                    返回所有新聞
+                                    AI
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Card Content -->
+                        <div class="flex flex-1 flex-col px-5 py-4">
+                            <h2 class="mb-3 line-clamp-2 text-lg font-bold text-slate-900 transition group-hover:text-blue-600">
+                                <a href="{{ url_for('public.news_detail', news_id=news.id) }}" class="hover:underline">
+                                    {{ news.title }}
                                 </a>
+                            </h2>
+                            {% if news.content %}
+                            <p class="mb-4 flex-1 text-sm leading-relaxed text-slate-600 line-clamp-3">
+                                {{ news.content.strip()[:150] }}{% if news.content|length > 150 %}...{% endif %}
+                            </p>
+                            {% endif %}
+                            
+                            <!-- CVE Tags -->
+                            {% if news.cve_id %}
+                            <div class="mb-4 flex flex-wrap gap-1.5">
+                                {% set cve_list = news.cve_id.split(',') %}
+                                {% for cve in cve_list[:2] %}
+                                <span class="inline-flex items-center gap-1 rounded-lg bg-red-50 px-2.5 py-1 text-xs font-bold text-red-700 ring-1 ring-red-200">
+                                    <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 14.5c-.77.833.192 2.5 1.732 2.5z" />
+                                    </svg>
+                                    {{ cve.strip() }}
+                                </span>
+                                {% endfor %}
+                                {% if cve_list|length > 2 %}
+                                <span class="inline-flex items-center rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                                    +{{ cve_list|length - 2 }}
+                                </span>
+                                {% endif %}
+                            </div>
                             {% endif %}
                         </div>
-                    {% endfor %}
-                </div>
-                
-                <!-- 分頁導航 -->
-                {% if news_list.pages > 1 %}
-                    <div class="mt-12">
-                        <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                            <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
-                                <!-- 分頁資訊 -->
-                                <div class="text-sm text-gray-600">
-                                    顯示第 {{ (news_list.page - 1) * news_list.per_page + 1 }} - 
-                                    {{ news_list.page * news_list.per_page if news_list.page * news_list.per_page < news_list.total else news_list.total }} 則，
-                                    共 {{ news_list.total }} 則新聞
-                                </div>
-                                
-                                <!-- 分頁按鈕 -->
-                                <div class="flex flex-wrap justify-center gap-2">
-                                    {% if news_list.has_prev %}
-                                        <a href="{{ url_for('public.index', page=1, source=current_source, q=search_query) }}" 
-                                           class="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all duration-200 font-medium">
-                                            第一頁
-                                        </a>
-                                        <a href="{{ url_for('public.index', page=news_list.prev_num, source=current_source, q=search_query) }}" 
-                                           class="px-4 py-2 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-xl transition-all duration-200 font-medium">
-                                            ← 上一頁
-                                        </a>
-                                    {% endif %}
-                                    
-                                    {% for page_num in news_list.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
-                                        {% if page_num %}
-                                            {% if page_num != news_list.page %}
-                                                <a href="{{ url_for('public.index', page=page_num, source=current_source, q=search_query) }}" 
-                                                   class="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all duration-200 font-medium hidden sm:block">
-                                                    {{ page_num }}
-                                                </a>
-                                            {% else %}
-                                                <span class="px-4 py-2 text-sm bg-blue-600 text-white rounded-xl font-bold shadow-md">
-                                                    {{ page_num }}
-                                                </span>
-                                            {% endif %}
-                                        {% else %}
-                                            <span class="px-2 py-2 text-sm text-gray-400 hidden sm:block">…</span>
-                                        {% endif %}
-                                    {% endfor %}
-                                    
-                                    {% if news_list.has_next %}
-                                        <a href="{{ url_for('public.index', page=news_list.next_num, source=current_source, q=search_query) }}" 
-                                           class="px-4 py-2 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-xl transition-all duration-200 font-medium">
-                                            下一頁 →
-                                        </a>
-                                        <a href="{{ url_for('public.index', page=news_list.pages, source=current_source, q=search_query) }}" 
-                                           class="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all duration-200 font-medium">
-                                            最後頁
-                                        </a>
-                                    {% endif %}
-                                </div>
+                        
+                        <!-- Card Footer -->
+                        <div class="border-t border-slate-100 bg-slate-50/50 px-5 py-3">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <a href="{{ url_for('public.news_detail', news_id=news.id) }}" class="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:from-blue-700 hover:to-blue-800 hover:shadow-md">
+                                    詳情
+                                    <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </a>
+                                {% if news.url %}
+                                <a href="{{ news.url }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:bg-slate-50">
+                                    原文
+                                    <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                </a>
+                                {% endif %}
+                                {% if news.poc_link %}
+                                <a href="{{ news.poc_link }}" target="_blank" rel="noopener" class="ml-auto inline-flex items-center gap-1 rounded-xl bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200 transition hover:bg-emerald-100">
+                                    POC
+                                </a>
+                                {% endif %}
                             </div>
                         </div>
+                    </article>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="rounded-3xl border border-dashed border-slate-300 bg-white p-16 text-center">
+                    <svg class="mx-auto h-16 w-16 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h3 class="mt-4 text-xl font-bold text-slate-700">目前無符合條件的新聞</h3>
+                    <p class="mt-2 text-sm text-slate-500">試著放寬搜尋條件或調整日期範圍</p>
+                    {% if has_filters %}
+                    <a href="{{ url_for('public.index') }}" class="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700">
+                        清除所有篩選
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Pagination -->
+                {% if news_list.pages > 1 %}
+                <nav class="mt-8 flex flex-col items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm sm:flex-row sm:justify-between">
+                    <div class="text-sm font-medium text-slate-600">
+                        第 <span class="font-bold text-slate-900">{{ news_list.page }}</span> / {{ news_list.pages }} 頁
+                        <span class="mx-2 text-slate-400">·</span>
+                        共 <span class="font-bold text-slate-900">{{ news_list.total }}</span> 則
                     </div>
+                    <div class="flex flex-wrap items-center justify-center gap-2">
+                        {% if news_list.has_prev %}
+                        <a href="{{ url_for('public.index', page=news_list.prev_num, q=filters.q, source=filters.source, date_from=filters.date_from, date_to=filters.date_to) }}" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                            </svg>
+                            上一頁
+                        </a>
+                        {% endif %}
+                        
+                        {% for page_num in news_list.iter_pages(left_edge=1, left_current=1, right_current=1, right_edge=1) %}
+                            {% if page_num %}
+                                {% if page_num == news_list.page %}
+                                <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 font-bold text-white shadow-md">
+                                    {{ page_num }}
+                                </span>
+                                {% else %}
+                                <a href="{{ url_for('public.index', page=page_num, q=filters.q, source=filters.source, date_from=filters.date_from, date_to=filters.date_to) }}" class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300 bg-white font-medium text-slate-700 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700">
+                                    {{ page_num }}
+                                </a>
+                                {% endif %}
+                            {% else %}
+                            <span class="px-2 text-slate-400">...</span>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if news_list.has_next %}
+                        <a href="{{ url_for('public.index', page=news_list.next_num, q=filters.q, source=filters.source, date_from=filters.date_from, date_to=filters.date_to) }}" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700">
+                            下一頁
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </a>
+                        {% endif %}
+                    </div>
+                </nav>
                 {% endif %}
             </div>
+            <!-- Sidebar -->
+            <aside class="space-y-5">
+                <!-- Trending CVEs -->
+                <section class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-lg">
+                    <div class="border-b border-slate-100 bg-gradient-to-r from-red-50 to-orange-50 px-5 py-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-red-700">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 14.5c-.77.833.192 2.5 1.732 2.5z" />
+                                </svg>
+                                熱門 CVE
+                            </h3>
+                            <span class="text-xs text-slate-500">近 80 筆</span>
+                        </div>
+                    </div>
+                    <div class="p-4">
+                        <div class="space-y-2">
+                            {% for item in trending_cves %}
+                            <a href="{{ url_for('public.index', q=item.cve) }}" class="group flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold transition hover:border-red-300 hover:bg-red-50 hover:shadow-sm">
+                                <span class="text-slate-800 group-hover:text-red-700">{{ item.cve }}</span>
+                                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-600 group-hover:bg-red-100 group-hover:text-red-700">{{ item.count }}</span>
+                            </a>
+                            {% else %}
+                            <p class="py-4 text-center text-sm text-slate-500">近期沒有 CVE 熱點</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Top Sources -->
+                <section class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-lg">
+                    <div class="border-b border-slate-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-5 py-4">
+                        <h3 class="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-blue-700">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 011 1v1m-5 3v6m6-7h2a2 2 0 012 2v10a2 2 0 01-2 2h-2m-2-7h-2m2 0v2" />
+                            </svg>
+                            主要來源
+                        </h3>
+                    </div>
+                    <div class="p-4">
+                        <ul class="space-y-2">
+                            {% for source in top_sources %}
+                            <li class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 transition hover:border-blue-300 hover:bg-blue-50">
+                                <span class="text-sm font-medium text-slate-800">{{ source.label }}</span>
+                                <span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">{{ source.count }}</span>
+                            </li>
+                            {% else %}
+                            <li class="py-4 text-center text-sm text-slate-500">沒有來源資料</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- AI Highlights -->
+                {% if ai_highlights %}
+                <section class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-lg">
+                    <div class="border-b border-slate-100 bg-gradient-to-r from-emerald-50 to-green-50 px-5 py-4">
+                        <h3 class="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-emerald-700">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            AI 摘要精選
+                        </h3>
+                    </div>
+                    <div class="p-4">
+                        <div class="space-y-3">
+                            {% for highlight in ai_highlights %}
+                            <a href="{{ url_for('public.news_detail', news_id=highlight.news_id) }}" class="group block rounded-xl border border-slate-200 bg-white p-3.5 transition hover:border-emerald-300 hover:bg-emerald-50/50 hover:shadow-sm">
+                                <p class="text-sm font-bold text-slate-900 line-clamp-2 group-hover:text-emerald-700">{{ highlight.title }}</p>
+                                {% if highlight.summary %}
+                                <p class="mt-2 text-xs leading-relaxed text-slate-600 line-clamp-2">{{ highlight.summary }}</p>
+                                {% endif %}
+                                <div class="mt-2 flex items-center justify-between text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                                    <span>{{ highlight.source }}</span>
+                                    <time datetime="{{ highlight.created_at.isoformat() }}">{{ highlight.created_at.strftime('%m/%d') }}</time>
+                                </div>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </section>
+                {% endif %}
+
+                <!-- LLM Prompts -->
+                {% if prompt_cards is defined and prompt_cards %}
+                <section class="overflow-hidden rounded-2xl border border-purple-200 bg-white shadow-lg">
+                    <div class="border-b border-purple-100 bg-gradient-to-r from-purple-50 to-pink-50 px-5 py-4">
+                        <h3 class="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-purple-700">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                            </svg>
+                            提示範本
+                        </h3>
+                    </div>
+                    <div class="p-4">
+                        <div class="space-y-2">
+                            {% for prompt in prompt_cards %}
+                            <details class="group rounded-xl border border-purple-200 bg-purple-50/30 transition hover:bg-purple-50">
+                                <summary class="cursor-pointer list-none px-3.5 py-2.5 text-sm font-bold text-purple-700 hover:text-purple-800">
+                                    {{ prompt.title }}
+                                </summary>
+                                <div class="border-t border-purple-100 bg-white px-3.5 py-3">
+                                    {% if prompt.description %}
+                                    <p class="mb-2 text-xs text-slate-600">{{ prompt.description }}</p>
+                                    {% endif %}
+                                    <pre class="max-h-40 overflow-y-auto rounded-lg bg-slate-900 px-3 py-2.5 text-[10px] leading-relaxed text-slate-100">{{ prompt.content | e }}</pre>
+                                </div>
+                            </details>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </section>
+                {% endif %}
+            </aside>
         </div>
     </div>
 </div>
 
-<!-- POC 選擇 Modal -->
-<div id="poc-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden z-50 p-4 backdrop-blur-sm">
-    <div class="flex justify-center items-center min-h-screen">
-        <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl transform transition-all duration-300 scale-95 opacity-0" id="poc-modal-content">
-            <!-- Modal Header -->
-            <div class="p-6 border-b border-gray-100">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-xl lg:text-2xl font-bold text-gray-900 flex items-center">
-                        <svg class="w-6 h-6 mr-3 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                        </svg>
-                        選擇查詢 CVE
-                    </h3>
-                    <button onclick="closePOCModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-                <p class="text-gray-600 mt-2">請選擇要查詢 POC 的 CVE 編號</p>
-            </div>
-            
-            <!-- Modal Body -->
-            <div class="p-6">
-                <div id="cve-list" class="space-y-3 mb-6 max-h-60 overflow-y-auto">
-                    <!-- CVE 選項將由 JavaScript 動態生成 -->
-                </div>
-                
-                <!-- Modal Footer -->
-                <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-100">
-                    <button onclick="closePOCModal()" class="w-full sm:flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all duration-200 font-medium">
-                        取消
-                    </button>
-                    <button onclick="submitPOCQuery()" class="w-full sm:flex-1 px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl transition-all duration-200 font-medium shadow-md hover:shadow-lg">
-                        開始查詢
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Loading Overlay -->
-<div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-40 hidden z-40 backdrop-blur-sm">
-    <div class="flex justify-center items-center min-h-screen">
-        <div class="bg-white rounded-2xl p-8 shadow-2xl text-center">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p class="text-gray-700 font-medium">正在查詢 POC...</p>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block extra_scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // 手機版搜尋面板切換
-    const mobileFilterToggle = document.getElementById('mobile-filter-toggle');
-    const searchPanel = document.getElementById('search-panel');
-    
-    if (mobileFilterToggle && searchPanel) {
-        mobileFilterToggle.addEventListener('click', function() {
-            // 只在手機版執行切換邏輯
-            if (window.innerWidth < 1024) {
-                const isHidden = searchPanel.classList.contains('hidden');
-                
-                if (isHidden) {
-                    searchPanel.classList.remove('hidden');
-                    searchPanel.classList.add('block');
-                    
-                    // 添加動畫效果
-                    setTimeout(() => {
-                        searchPanel.style.opacity = '1';
-                        searchPanel.style.transform = 'translateY(0)';
-                    }, 10);
-                    
-                    mobileFilterToggle.innerHTML = `
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                        關閉搜尋
-                    `;
-                } else {
-                    searchPanel.style.opacity = '0';
-                    searchPanel.style.transform = 'translateY(-10px)';
-                    
-                    setTimeout(() => {
-                        searchPanel.classList.add('hidden');
-                        searchPanel.classList.remove('block');
-                    }, 200);
-                    
-                    mobileFilterToggle.innerHTML = `
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                        </svg>
-                        搜尋與篩選
-                    `;
+    document.addEventListener('DOMContentLoaded', () => {
+        // Form submission on Enter key
+        const form = document.querySelector('[data-role="news-filters"]');
+        if (form) {
+            form.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' && event.target.matches('input[type="text"], input[type="date"], select')) {
+                    event.preventDefault();
+                    form.submit();
                 }
-            }
-        });
-        
-        // 初始化搜尋面板樣式（僅在手機版）
-        searchPanel.style.transition = 'opacity 0.2s ease-in-out, transform 0.2s ease-in-out';
-        
-        // 檢查是否為手機版（lg 斷點以下）
-        if (window.innerWidth < 1024) {
-            // 手機版：確保隱藏狀態正確
-            searchPanel.classList.remove('block');
-            searchPanel.style.opacity = '0';
-            searchPanel.style.transform = 'translateY(-10px)';
-            console.log('搜尋面板初始化：手機版模式');
-        } else {
-            // 桌面版：清除可能的手機版狀態，讓 Tailwind CSS 控制
-            searchPanel.classList.remove('hidden', 'block');
-            searchPanel.style.opacity = '';
-            searchPanel.style.transform = '';
-            console.log('搜尋面板初始化：桌面版模式');
+            });
         }
         
-        // 窗口大小調整時重新檢查
-        window.addEventListener('resize', function() {
-            if (window.innerWidth >= 1024) {
-                // 桌面版：清除手機版狀態，讓 Tailwind CSS 控制
-                searchPanel.classList.remove('hidden', 'block');
-                searchPanel.style.opacity = '';
-                searchPanel.style.transform = '';
-                
-                // 重置手機版按鈕文字
-                mobileFilterToggle.innerHTML = `
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                    </svg>
-                    搜尋與篩選
-                `;
-            } else {
-                // 手機版：確保隱藏狀態
-                if (!searchPanel.classList.contains('block')) {
-                    searchPanel.classList.add('hidden');
-                    searchPanel.classList.remove('block');
-                    searchPanel.style.opacity = '0';
-                    searchPanel.style.transform = 'translateY(-10px)';
-                }
-            }
-        });
-    }
-    
-    // Modal 動畫初始化
-    const modalContent = document.getElementById('poc-modal-content');
-    if (modalContent) {
-        modalContent.style.transition = 'all 0.3s ease-in-out';
-    }
-});
-
-let currentNewsId = null;
-
-function queryPOC(newsId, cveString) {
-    currentNewsId = newsId;
-    const cveList = cveString.split(',').map(c => c.trim()).filter(c => c);
-    
-    if (cveList.length === 1) {
-        // 只有一個 CVE，直接查詢
-        performPOCQuery(newsId, cveList);
-    } else {
-        // 多個 CVE，顯示選擇 modal
-        showPOCModal(cveList);
-    }
-}
-
-function showPOCModal(cveList) {
-    const modal = document.getElementById('poc-modal');
-    const modalContent = document.getElementById('poc-modal-content');
-    const cveListDiv = document.getElementById('cve-list');
-    
-    cveListDiv.innerHTML = '';
-    
-    // 全選選項
-    const selectAllDiv = document.createElement('div');
-    selectAllDiv.className = 'flex items-center p-3 bg-blue-50 rounded-xl border-2 border-blue-200';
-    selectAllDiv.innerHTML = `
-        <input type="checkbox" id="select-all" class="mr-3 w-5 h-5 text-blue-600 rounded focus:ring-blue-500" onchange="toggleAll(this)">
-        <label for="select-all" class="font-bold text-blue-900 cursor-pointer flex-1">全選所有 CVE</label>
-    `;
-    cveListDiv.appendChild(selectAllDiv);
-    
-    // 個別 CVE 選項
-    cveList.forEach((cve, index) => {
-        const div = document.createElement('div');
-        div.className = 'flex items-center p-3 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors';
-        div.innerHTML = `
-            <input type="checkbox" id="cve-${index}" value="${cve}" class="mr-3 w-5 h-5 text-orange-600 rounded focus:ring-orange-500 cve-checkbox">
-            <label for="cve-${index}" class="font-medium text-gray-900 cursor-pointer flex-1">${cve}</label>
-            <span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full font-bold">CVE</span>
-        `;
-        cveListDiv.appendChild(div);
-    });
-    
-    // 顯示 modal 並添加動畫
-    modal.classList.remove('hidden');
-    setTimeout(() => {
-        modalContent.style.opacity = '1';
-        modalContent.style.transform = 'scale(1)';
-    }, 10);
-}
-
-function closePOCModal() {
-    const modal = document.getElementById('poc-modal');
-    const modalContent = document.getElementById('poc-modal-content');
-    
-    modalContent.style.opacity = '0';
-    modalContent.style.transform = 'scale(0.95)';
-    
-    setTimeout(() => {
-        modal.classList.add('hidden');
-        currentNewsId = null;
-    }, 300);
-}
-
-function toggleAll(selectAllCheckbox) {
-    const cveCheckboxes = document.querySelectorAll('.cve-checkbox');
-    cveCheckboxes.forEach(cb => {
-        cb.checked = selectAllCheckbox.checked;
-    });
-}
-
-function submitPOCQuery() {
-    const selectedCVEs = Array.from(document.querySelectorAll('.cve-checkbox:checked'))
-        .map(cb => cb.value);
-    
-    if (selectedCVEs.length === 0) {
-        alert('請至少選擇一個 CVE 進行查詢');
-        return;
-    }
-    
-    closePOCModal();
-    performPOCQuery(currentNewsId, selectedCVEs);
-}
-
-function performPOCQuery(newsId, cveList) {
-    const btn = document.getElementById(`poc-btn-${newsId}`);
-    const originalText = btn.innerHTML;
-    const loadingOverlay = document.getElementById('loading-overlay');
-    
-    // 顯示 loading
-    loadingOverlay.classList.remove('hidden');
-    
-    // 更新按鈕狀態
-    btn.innerHTML = `
-        <svg class="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-        </svg>
-        查詢中...
-    `;
-    btn.disabled = true;
-    btn.classList.add('opacity-75', 'cursor-not-allowed');
-    
-    // 發送 API 請求
-    fetch('/api/jobs/poc', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            news_id: newsId,
-            cve_ids: cveList
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        loadingOverlay.classList.add('hidden');
-        
-        if (data.code === 200) {
-            // 成功訊息
-            let message = `🎯 POC 查詢完成！\n\n`;
-            message += `CVE: ${cveList.join(', ')}\n`;
-            message += `任務ID: ${data.data.job_run_id}\n\n`;
+        // Add fade-in animation to news cards
+        const newsCards = document.querySelectorAll('article');
+        newsCards.forEach((card, index) => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            card.style.transition = 'opacity 0.4s ease-out, transform 0.4s ease-out';
             
-            if (data.data.found && data.data.found.length > 0) {
-                message += `✅ 找到 ${data.data.found.length} 個 CVE 的 POC\n`;
-                message += `🔗 相關連結已更新至新聞詳情頁`;
-                
-                // 顯示成功 toast
-                showToast(message, 'success');
-                
-                // 3秒後重新載入頁面以更新顯示
-                setTimeout(() => {
-                    location.reload();
-                }, 3000);
-            } else {
-                message += `⚠️ 很遺憾，未找到相關的 POC\n`;
-                message += `💡 建議稍後再試或查看官方安全公告`;
-                showToast(message, 'warning');
-            }
-        } else {
-            showToast(`❌ 查詢失敗: ${data.message}`, 'error');
+            setTimeout(() => {
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, index * 50); // Stagger animation
+        });
+        
+        // Smooth scroll to top on pagination
+        const paginationLinks = document.querySelectorAll('nav a[href*="page="]');
+        paginationLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        });
+        
+        // Add loading state to submit button
+        const submitBtn = form?.querySelector('button[type="submit"]');
+        if (submitBtn && form) {
+            form.addEventListener('submit', () => {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = `
+                    <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="hidden sm:inline ml-2">搜尋中...</span>
+                `;
+            });
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        loadingOverlay.classList.add('hidden');
-        showToast('❌ 網路連線錯誤，請檢查網路後重試', 'error');
-    })
-    .finally(() => {
-        // 恢復按鈕狀態
-        setTimeout(() => {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-            btn.classList.remove('opacity-75', 'cursor-not-allowed');
-        }, 2000);
     });
-}
-
-// Toast 通知函數
-function showToast(message, type = 'info') {
-    const toast = document.createElement('div');
-    const colors = {
-        success: 'bg-green-600',
-        warning: 'bg-yellow-600', 
-        error: 'bg-red-600',
-        info: 'bg-blue-600'
-    };
-    
-    toast.className = `fixed top-4 right-4 ${colors[type]} text-white px-6 py-4 rounded-xl shadow-2xl z-50 max-w-md transform translate-x-full transition-transform duration-300`;
-    toast.innerHTML = `
-        <div class="flex items-start">
-            <div class="flex-1">
-                <pre class="whitespace-pre-wrap text-sm font-medium">${message}</pre>
-            </div>
-            <button onclick="this.parentElement.parentElement.remove()" class="ml-3 text-white hover:text-gray-200">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-            </button>
-        </div>
-    `;
-    
-    document.body.appendChild(toast);
-    
-    // 顯示動畫
-    setTimeout(() => {
-        toast.style.transform = 'translateX(0)';
-    }, 100);
-    
-    // 自動消失
-    setTimeout(() => {
-        toast.style.transform = 'translateX(100%)';
-        setTimeout(() => {
-            if (toast.parentElement) {
-                toast.remove();
-            }
-        }, 300);
-    }, 8000);
-}
 </script>
 {% endblock %}
