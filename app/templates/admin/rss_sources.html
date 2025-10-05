@@ -3,72 +3,109 @@
 {% block title %}RSS 來源管理 - 管理後台{% endblock %}
 
 {% block content %}
-<div class="flex justify-between items-center mb-6">
-    <h1 class="text-2xl font-bold text-gray-900">RSS 來源管理</h1>
-    <div class="flex space-x-3">
-        <a href="{{ url_for('admin.add_rss_source') }}" class="btn-primary">
-            新增 RSS 來源
-        </a>
-        <a href="{{ url_for('admin.dashboard') }}" class="btn-secondary">
-            返回後台首頁
-        </a>
-    </div>
-</div>
+<div class="min-h-screen">
+    <div class="mx-auto w-full space-y-6">
+        <!-- Header -->
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h1 class="text-3xl font-extrabold text-slate-900">RSS 來源管理</h1>
+                <p class="mt-1 text-sm text-slate-600">管理新聞來源與爬蟲設定</p>
+            </div>
+            <div class="flex gap-3">
+                <a href="{{ url_for('admin.add_rss_source') }}" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:from-blue-700 hover:to-blue-800 hover:shadow-lg">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    新增來源
+                </a>
+                <a href="{{ url_for('admin.dashboard') }}" class="inline-flex items-center gap-2 rounded-xl border-2 border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-400 hover:bg-slate-50">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    返回後台
+                </a>
+            </div>
+        </div>
 
-<div class="card">
-    <h2 class="text-lg font-semibold mb-4">RSS 來源列表</h2>
-    
-    <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">來源名稱</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">來源標識</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">狀態</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最後執行</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for source in sources %}
-                    <tr>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div>
-                                <div class="text-sm font-medium text-gray-900">{{ source.name }}</div>
-                                <div class="text-sm text-gray-500 break-all">{{ source.link[:80] }}{% if source.link|length > 80 %}...{% endif %}</div>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {{ source.source }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            {% if source.enabled %}
-                                <span class="inline-flex px-2 py-1 text-xs bg-green-100 text-green-800 rounded">
+        <!-- RSS Sources Table -->
+        <div class="rounded-2xl border border-slate-200/70 bg-white shadow-md">
+            <div class="border-b border-slate-200 px-6 py-4">
+                <h2 class="text-lg font-bold text-slate-900">RSS 來源列表</h2>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">來源名稱</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">來源標識</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">狀態</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">最後執行</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200 bg-white">
+                        {% for source in sources %}
+                        <tr class="transition hover:bg-slate-50">
+                            <td class="px-6 py-4">
+                                <div class="max-w-md">
+                                    <div class="text-sm font-semibold text-slate-900">{{ source.name }}</div>
+                                    <div class="mt-1 truncate text-xs text-slate-500">{{ source.link[:80] }}{% if source.link|length > 80 %}...{% endif %}</div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-mono font-semibold text-slate-700 border border-slate-200">
+                                    {{ source.source }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if source.enabled %}
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-800 shadow-sm border border-green-200">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>
                                     啟用
                                 </span>
-                            {% else %}
-                                <span class="inline-flex px-2 py-1 text-xs bg-red-100 text-red-800 rounded">
+                                {% else %}
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-800 shadow-sm border border-red-200">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>
                                     停用
                                 </span>
-                            {% endif %}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {{ source.last_run_at.strftime('%Y-%m-%d') if source.last_run_at else '從未執行' }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-                            <form method="POST" action="{{ url_for('admin.toggle_rss_source', source_id=source.id) }}" class="inline">
-                                <button type="submit" class="text-blue-600 hover:text-blue-800">
-                                    {% if source.enabled %}停用{% else %}啟用{% endif %}
-                                </button>
-                            </form>
-                            <a href="{{ source.link }}" target="_blank" class="text-green-600 hover:text-green-800">
-                                測試
-                            </a>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                                {{ source.last_run_at.strftime('%Y-%m-%d %H:%M') if source.last_run_at else '從未執行' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <div class="flex items-center gap-2">
+                                    <form method="POST" action="{{ url_for('admin.toggle_rss_source', source_id=source.id) }}" class="inline">
+                                        <button type="submit" class="inline-flex items-center gap-1 rounded-lg {% if source.enabled %}bg-orange-600 hover:bg-orange-700{% else %}bg-green-600 hover:bg-green-700{% endif %} px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition">
+                                            {% if source.enabled %}
+                                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            停用
+                                            {% else %}
+                                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            啟用
+                                            {% endif %}
+                                        </button>
+                                    </form>
+                                    <a href="{{ source.link }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700">
+                                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                        </svg>
+                                        測試
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
