@@ -1,13 +1,8 @@
-"""Unit tests for the GenAI client helpers."""
 import os
-import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, PROJECT_ROOT)
-os.chdir(PROJECT_ROOT)
+from google.api_core import exceptions as google_exceptions
 
 from crawlers.genai_client import GenAIClient, RateLimitExceeded
 from utils.rate_limiter import RateLimiter
@@ -21,7 +16,14 @@ def mock_genai_model():
 
 def test_generate_analysis_parses_embedded_json(mock_genai_model):
     response = MagicMock()
-    response.text = "Intro text {\n  \"summary\": \"測試摘要\",\n  \"translation\": \"Test translation\",\n  \"how_to_exploit\": \"測試利用說明\",\n  \"keywords\": [\"測試\", \"關鍵字\"]\n}\nFooter"
+    response.text = (
+        "Intro text {\n"
+        '  "summary": "測試摘要",\n'
+        '  "translation": "Test translation",\n'
+        '  "how_to_exploit": "測試利用說明",\n'
+        '  "keywords": ["測試", "關鍵字"]\n'
+        "}\nFooter"
+    )
 
     instance = MagicMock()
     instance.generate_content.return_value = response
@@ -45,6 +47,17 @@ def test_generate_analysis_returns_fallback_on_exception(mock_genai_model):
 
     assert result["summary"] == "AI 分析失敗"
     assert result["keywords"] == []
+
+
+def test_generate_analysis_raises_on_quota_exhaustion(mock_genai_model):
+    instance = MagicMock()
+    instance.generate_content.side_effect = google_exceptions.ResourceExhausted("quota hit")
+    mock_genai_model.return_value = instance
+
+    client = GenAIClient(api_key="fake-key", model="fake-model")
+
+    with pytest.raises(RateLimitExceeded):
+        client.generate_analysis("test text", news_title="quota test")
 
 
 def test_connection_handles_errors(mock_genai_model):
@@ -76,12 +89,11 @@ def test_generate_analysis_respects_rate_limit(mock_genai_model):
     mock_genai_model.return_value = instance
 
     client = GenAIClient(api_key="fake-key", model="fake-model", max_rpm=1)
+    client.rate_limiter.acquire = MagicMock(side_effect=[None, RateLimitExceeded("limit")])
 
-    # first call should pass
     first_result = client.generate_analysis("text", news_title="news")
     assert first_result["summary"] == "ok"
 
-    # second call within the same window should raise
     with pytest.raises(RateLimitExceeded):
         client.generate_analysis("text", news_title="news 2")
 

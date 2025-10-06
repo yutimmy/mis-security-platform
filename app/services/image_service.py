@@ -21,21 +21,35 @@ class ImageService:
         self.app_root = Path(current_app.root_path)
         self.upload_root = self.app_root / uploads_config
         self.relative_upload_root = Path(uploads_config)
-        self.allowed_types = current_app.config.get('ALLOWED_IMAGE_TYPES', 'image/png,image/jpeg,image/webp').split(',')
+
+        allowed_types_config = current_app.config.get('ALLOWED_IMAGE_TYPES', 'image/png,image/jpeg,image/webp')
+        self.allowed_mime_types = {
+            mime.strip().lower()
+            for mime in allowed_types_config.split(',')
+            if mime.strip()
+        }
+        self.allowed_extensions = {
+            ext
+            for ext in (self._extension_from_mime(mime) for mime in self.allowed_mime_types)
+            if ext
+        }
         self.max_size_mb = current_app.config.get('MAX_IMAGE_SIZE_MB', 1.5)
 
     def upload_image(self, file, user_id, related_type=None, related_id=None):
         """上傳圖片"""
-        try:
-            # 驗證檔案
-            if not self._validate_file(file):
-                return None, "檔案驗證失敗"
+        is_valid, error_message, metadata = self._validate_file(file)
+        if not is_valid:
+            return None, error_message
 
+        detected_mime = metadata['mime']
+        file_ext = metadata['extension']
+        absolute_path = None
+
+        try:
             # 確保上傳目錄存在
             self.upload_root.mkdir(parents=True, exist_ok=True)
 
             # 產生唯一檔名
-            file_ext = self._get_file_extension(file.filename)
             file_hash = self._generate_file_hash(file)
             filename = f"{file_hash}_{uuid.uuid4().hex[:8]}{file_ext}"
             absolute_path = self.upload_root / filename
@@ -47,18 +61,20 @@ class ImageService:
                 return existing_image, "檔案已存在"
 
             # 儲存檔案
-            file.seek(0)  # 重置檔案指標
+            file.seek(0)
             file.save(absolute_path)
 
             # 處理圖片（壓縮、產生縮圖等）
             processed_info = self._process_image(absolute_path)
+            if not processed_info.get('processed'):
+                raise ValueError(processed_info.get('error') or '圖片處理失敗')
 
             # 記錄到資料庫
             image_record = Image(
                 original_filename=secure_filename(file.filename),
                 file_path=str(relative_path).replace('\\', '/'),
                 file_size=os.path.getsize(absolute_path),
-                mime_type=file.content_type,
+                mime_type=detected_mime,
                 width=processed_info.get('width'),
                 height=processed_info.get('height'),
                 user_id=user_id,
@@ -76,6 +92,11 @@ class ImageService:
         except Exception as e:
             current_app.logger.error(f"Image upload failed: {str(e)}")
             db.session.rollback()
+            if absolute_path and absolute_path.exists():
+                try:
+                    absolute_path.unlink()
+                except OSError:
+                    current_app.logger.warning("Failed to remove incomplete upload %s", absolute_path)
             return None, f"上傳失敗: {str(e)}"
 
     def delete_image(self, image_id, user_id):
@@ -125,29 +146,63 @@ class ImageService:
         )
 
     def _validate_file(self, file):
-        """驗證檔案"""
+        """驗證檔案內容與大小"""
         if not file or not file.filename:
-            return False
+            return False, "未選擇檔案", None
 
-        # 檢查 MIME 類型
-        if file.content_type not in self.allowed_types:
-            return False
+        stream = file.stream
+        stream.seek(0, os.SEEK_END)
+        size_mb = stream.tell() / (1024 * 1024)
+        stream.seek(0)
 
-        # 檢查檔案大小
-        file.seek(0, os.SEEK_END)
-        size_mb = file.tell() / (1024 * 1024)
-        file.seek(0)
-        
+        if size_mb <= 0:
+            return False, "檔案內容為空", None
         if size_mb > self.max_size_mb:
-            return False
+            return False, f"檔案大小超過 {self.max_size_mb}MB 限制", None
 
-        return True
+        try:
+            stream.seek(0)
+            with Image.open(stream) as img:
+                img.verify()
+                format_name = img.format
+                detected_mime = Image.MIME.get(format_name)
+        except Exception:
+            stream.seek(0)
+            return False, "檔案不是有效的圖片", None
 
-    def _get_file_extension(self, filename):
-        """取得檔案副檔名"""
-        if '.' in filename:
-            return '.' + filename.rsplit('.', 1)[1].lower()
-        return ''
+        stream.seek(0)
+
+        if not detected_mime or detected_mime.lower() not in self.allowed_mime_types:
+            return False, "圖片格式不支援", None
+
+        extension = self._extension_from_format(format_name)
+        if not extension or (self.allowed_extensions and extension not in self.allowed_extensions):
+            return False, "圖片副檔名不支援", None
+
+        return True, None, {
+            'mime': detected_mime.lower(),
+            'extension': extension
+        }
+
+    def _extension_from_mime(self, mime):
+        mapping = {
+            'image/jpeg': '.jpg',
+            'image/jpg': '.jpg',
+            'image/png': '.png',
+            'image/webp': '.webp'
+        }
+        return mapping.get(mime.lower())
+
+    def _extension_from_format(self, format_name):
+        if not format_name:
+            return None
+        mapping = {
+            'JPEG': '.jpg',
+            'JPG': '.jpg',
+            'PNG': '.png',
+            'WEBP': '.webp'
+        }
+        return mapping.get(format_name.upper())
 
     def _generate_file_hash(self, file):
         """產生檔案雜湊值"""
@@ -172,7 +227,8 @@ class ImageService:
                 return {
                     'width': width,
                     'height': height,
-                    'processed': True
+                    'processed': True,
+                    'error': None
                 }
 
         except Exception as e:
@@ -180,5 +236,6 @@ class ImageService:
             return {
                 'width': None,
                 'height': None,
-                'processed': False
+                'processed': False,
+                'error': str(e)
             }

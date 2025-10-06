@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}資安情訊平臺{% endblock %}</title>
     
     <!-- Tailwind CSS CDN - 開發版本（包含 @apply 支援）-->
@@ -15,6 +16,39 @@
                 extend: {}
             }
         }
+    </script>
+    <script>
+        (function() {
+            const tokenMeta = document.querySelector('meta[name="csrf-token"]');
+            if (!tokenMeta) {
+                return;
+            }
+
+            const token = tokenMeta.getAttribute('content');
+            if (!token) {
+                return;
+            }
+
+            window.csrfToken = token;
+            const originalFetch = window.fetch;
+
+            if (typeof originalFetch === 'function') {
+                window.fetch = function(input, init) {
+                    const options = init ? { ...init } : {};
+                    const headers = new Headers(options.headers || {});
+
+                    if (!headers.has('X-CSRFToken')) {
+                        headers.set('X-CSRFToken', token);
+                    }
+                    if (!headers.has('X-Requested-With')) {
+                        headers.set('X-Requested-With', 'XMLHttpRequest');
+                    }
+
+                    options.headers = headers;
+                    return originalFetch.call(this, input, options);
+                };
+            }
+        })();
     </script>
     
     <!-- 自訂樣式 -->

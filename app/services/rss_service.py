@@ -8,9 +8,15 @@ from app.models.schema import RssSource, News, JobRun
 from config import Config
 from crawlers.genai_client import GenAIClient
 from crawlers.rss import process_rss_feed, save_items_to_db
+from utils.timezone_utils import get_current_time
 
 
 logger = logging.getLogger(__name__)
+
+
+def _now():
+    """取得當前本地時間"""
+    return get_current_time(Config.TIMEZONE)
 
 
 class RSSService:
@@ -33,7 +39,7 @@ class RSSService:
         job_run = JobRun(
             job_type='rss_all',
             target=None,
-            started_at=datetime.now(),
+            started_at=_now(),
             status='running'
         )
         db.session.add(job_run)
@@ -45,7 +51,7 @@ class RSSService:
             
             if not rss_sources:
                 job_run.status = 'failed'
-                job_run.ended_at = datetime.now()
+                job_run.ended_at = _now()
                 job_run.error_count = 1
                 db.session.commit()
                 return {
@@ -69,7 +75,9 @@ class RSSService:
                         source.link,
                         source.source,
                         self.genai_client,
-                        self.config.JINA_MAX_RPM
+                        self.config.JINA_MAX_RPM,
+                        self.config.JINA_TIMEOUT,
+                        self.config.JINA_MAX_RETRIES
                     )
                     
                     # 儲存到資料庫
@@ -81,6 +89,7 @@ class RSSService:
                         )
                         
                         total_new += save_stats['inserted']
+                        total_new += save_stats.get('updated', 0)  # 更新也計入新增
                         total_errors += save_stats['errors']
                     
                     total_processed += result['processed']
@@ -89,7 +98,7 @@ class RSSService:
                     total_ai_skipped += result.get('ai_skipped', 0)
                     
                     # 更新來源最後執行時間
-                    source.last_run_at = datetime.now()
+                    source.last_run_at = _now()
                     
                 except Exception as e:
                     logger.exception("Error processing RSS source %s", source.name)
@@ -97,7 +106,7 @@ class RSSService:
             
             # 更新任務記錄
             job_run.status = 'success' if total_errors == 0 else 'partial'
-            job_run.ended_at = datetime.now()
+            job_run.ended_at = _now()
             job_run.inserted_count = total_new
             job_run.error_count = total_errors
             
@@ -122,7 +131,7 @@ class RSSService:
         except Exception as e:
             logger.exception("Failed to run RSS crawler for all sources")
             job_run.status = 'failed'
-            job_run.ended_at = datetime.now()
+            job_run.ended_at = _now()
             job_run.error_count = 1
             db.session.commit()
 
@@ -146,7 +155,7 @@ class RSSService:
         job_run = JobRun(
             job_type='rss_single',
             target=source.name,
-            started_at=datetime.now(),
+            started_at=_now(),
             status='running'
         )
         db.session.add(job_run)
@@ -160,7 +169,9 @@ class RSSService:
                 source.link,
                 source.source,
                 self.genai_client,
-                self.config.JINA_MAX_RPM
+                self.config.JINA_MAX_RPM,
+                self.config.JINA_TIMEOUT,
+                self.config.JINA_MAX_RETRIES
             )
             
             # 儲存到資料庫
@@ -176,16 +187,17 @@ class RSSService:
                     News
                 )
                 new_items = save_stats['inserted']
+                new_items += save_stats.get('updated', 0)  # 更新也計入新增
                 errors = save_stats['errors']
             
             errors += result['errors']
             
             # 更新來源最後執行時間
-            source.last_run_at = datetime.now()
+            source.last_run_at = _now()
             
             # 更新任務記錄
             job_run.status = 'success' if errors == 0 else 'partial'
-            job_run.ended_at = datetime.now()
+            job_run.ended_at = _now()
             job_run.inserted_count = new_items
             job_run.error_count = errors
             
@@ -210,7 +222,7 @@ class RSSService:
         except Exception as e:
             logger.exception("Failed to process RSS source %s", source.name)
             job_run.status = 'failed'
-            job_run.ended_at = datetime.now()
+            job_run.ended_at = _now()
             job_run.error_count = 1
             db.session.commit()
 
@@ -239,7 +251,7 @@ class RSSService:
         job_run = JobRun(
             job_type='ai_rerun',
             target=f'news_{news_id}',
-            started_at=datetime.now(),
+            started_at=_now(),
             status='running'
         )
         db.session.add(job_run)
@@ -260,7 +272,7 @@ class RSSService:
             
             # 更新任務記錄
             job_run.status = 'success'
-            job_run.ended_at = datetime.now()
+            job_run.ended_at = _now()
             job_run.inserted_count = 1
             
             db.session.commit()
@@ -275,7 +287,7 @@ class RSSService:
         except Exception as e:
             logger.exception("AI re-analysis failed for news %s", news_id)
             job_run.status = 'failed'
-            job_run.ended_at = datetime.now()
+            job_run.ended_at = _now()
             job_run.error_count = 1
             db.session.commit()
             

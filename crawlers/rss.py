@@ -14,7 +14,7 @@ from .jina_reader import fetch_readable
 logger = logging.getLogger(__name__)
 
 
-def process_rss_feed(rss_url, source_name, genai_client=None, jina_rpm=10):
+def process_rss_feed(rss_url, source_name, genai_client=None, jina_rpm=10, jina_timeout=30, jina_max_retries=3):
     """
     處理單個 RSS feed
     
@@ -23,6 +23,8 @@ def process_rss_feed(rss_url, source_name, genai_client=None, jina_rpm=10):
         source_name: 來源名稱
         genai_client: GenAI 客戶端實例
         jina_rpm: Jina Reader 每分鐘請求限制
+        jina_timeout: Jina Reader 請求超時（秒）
+        jina_max_retries: Jina Reader 最大重試次數
         
     Returns:
         dict: 處理結果統計
@@ -69,7 +71,12 @@ def process_rss_feed(rss_url, source_name, genai_client=None, jina_rpm=10):
                 
                 # 如果沒有內容或內容太短，使用 Jina Reader
                 if len(content) < 100:
-                    jina_content = fetch_readable(link, jina_rpm)
+                    jina_content = fetch_readable(
+                        link, 
+                        rpm=jina_rpm,
+                        timeout=jina_timeout,
+                        max_retries=jina_max_retries
+                    )
                     if jina_content:
                         content = jina_content
                 
@@ -91,8 +98,10 @@ def process_rss_feed(rss_url, source_name, genai_client=None, jina_rpm=10):
                         )
                         result['ai_requests'] += 1
                     except Exception as e:
-                        logger.exception("AI analysis failed for %s: %s", title[:50], e)
-                        result['errors'] += 1
+                        logger.warning("AI analysis failed for %s: %s", title[:50], str(e))
+                        # 不增加 errors 計數，因為這不是致命錯誤
+                        # 文章仍會被儲存，只是沒有 AI 內容
+                        result['ai_skipped'] += 1
 
                 # 構建結果項目
                 item_data = {
@@ -118,10 +127,12 @@ def process_rss_feed(rss_url, source_name, genai_client=None, jina_rpm=10):
                 result['errors'] += 1
 
         logger.info(
-            "RSS processing completed: %s processed, %s new items, %s errors",
+            "RSS processing completed: %s processed, %s new items, %s errors, %s AI analyzed, %s AI skipped",
             result['processed'],
             result['new_items'],
             result['errors'],
+            result['ai_requests'],
+            result['ai_skipped'],
         )
 
     except Exception as e:
@@ -145,6 +156,7 @@ def save_items_to_db(items, db_session, news_model):
     """
     stats = {
         'inserted': 0,
+        'updated': 0,
         'skipped': 0,
         'errors': 0
     }
@@ -153,14 +165,27 @@ def save_items_to_db(items, db_session, news_model):
         try:
             # 檢查是否已存在（以 link 為準）
             existing = news_model.query.filter_by(link=item['link']).first()
-            if existing:
-                stats['skipped'] += 1
-                continue
             
             # 準備資料
             ai_content_json = ""
             if item['ai_analysis']:
                 ai_content_json = json.dumps(item['ai_analysis'], ensure_ascii=False)
+            
+            if existing:
+                # 如果已存在但沒有 AI 內容,且本次有 AI 分析結果,則更新
+                if (not existing.ai_content or existing.ai_content == '') and item['ai_analysis']:
+                    logger.info("Updating existing news %s with AI content", item['title'][:50])
+                    existing.ai_content = ai_content_json
+                    existing.keyword = ', '.join(item['ai_analysis'].get('keywords', []))
+                    # 也更新可能缺失的 CVE/Email
+                    if item['cve_list'] and not existing.cve_id:
+                        existing.cve_id = ', '.join(item['cve_list'])
+                    if item['email_list'] and not existing.email:
+                        existing.email = ', '.join(item['email_list'])
+                    stats['updated'] += 1  # 計為更新成功
+                else:
+                    stats['skipped'] += 1
+                continue
             
             # 建立新聞記錄
             news = news_model(
@@ -184,15 +209,17 @@ def save_items_to_db(items, db_session, news_model):
     try:
         db_session.commit()
         logger.info(
-            "Database save completed: %s inserted, %s skipped, %s errors",
+            "Database save completed: %s inserted, %s updated, %s skipped, %s errors",
             stats['inserted'],
+            stats['updated'],
             stats['skipped'],
             stats['errors'],
         )
     except Exception as e:
         logger.exception("Error committing RSS items to database: %s", e)
         db_session.rollback()
-        stats['errors'] += stats['inserted']
+        stats['errors'] += stats['inserted'] + stats['updated']
         stats['inserted'] = 0
+        stats['updated'] = 0
     
     return stats

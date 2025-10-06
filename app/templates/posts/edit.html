@@ -204,6 +204,7 @@
 
     <!-- 編輯器表單 -->
     <form id="postForm" method="POST" class="space-y-6">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <!-- 標題輸入 -->
         <div class="bg-white rounded-lg shadow p-6">
             <label for="title" class="block text-sm font-medium text-gray-700 mb-2">文章標題 *</label>

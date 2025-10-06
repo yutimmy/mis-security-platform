@@ -5,10 +5,17 @@ from datetime import datetime
 
 from app.models.db import db
 from app.models.schema import News, JobRun, CvePoc
+from config import Config
 from crawlers.sploitus import SploitusClient
+from utils.timezone_utils import get_current_time
 
 
 logger = logging.getLogger(__name__)
+
+
+def _now():
+    """取得當前本地時間"""
+    return get_current_time(Config.TIMEZONE)
 
 
 class POCService:
@@ -45,7 +52,7 @@ class POCService:
         job_run = JobRun(
             job_type='poc_search',
             target=f'news_{news_id}',
-            started_at=datetime.now(),
+            started_at=_now(),
             status='running'
         )
         db.session.add(job_run)
@@ -80,7 +87,7 @@ class POCService:
                                 cve_id=cve_id,
                                 poc_link=link,
                                 source='sploitus',
-                                found_at=datetime.now()
+                                found_at=_now()
                             )
                             
                             # 檢查是否已存在相同的記錄
@@ -126,7 +133,7 @@ class POCService:
                 status = 'partial'
                 
             job_run.status = status
-            job_run.ended_at = datetime.now()
+            job_run.ended_at = _now()
             job_run.inserted_count = len(found_pocs)
             job_run.error_count = len(not_found_cves)
             job_run.skipped_count = 0
@@ -165,7 +172,7 @@ class POCService:
             logger.exception("POC search failed for news %s", news_id)
             
             job_run.status = 'failed'
-            job_run.ended_at = datetime.now()
+            job_run.ended_at = _now()
             job_run.error_count = len(cve_ids)
             job_run.details = json.dumps({
                 'error': error_msg,
@@ -203,7 +210,7 @@ class POCService:
                         cve_id=cve_id,
                         poc_link=link,
                         source='sploitus',
-                        found_at=datetime.now()
+                        found_at=_now()
                     )
                     db.session.add(poc_record)
                 

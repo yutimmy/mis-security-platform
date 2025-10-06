@@ -1,16 +1,30 @@
 # API 端點：JSON 回應
+import json
 import logging
-from flask import Blueprint, jsonify, request, session
 from datetime import datetime
+from typing import Dict, Optional
+
+from flask import Blueprint, current_app, jsonify, request, session
 
 from app.models.db import db
-from app.models.schema import News, RssSource, JobRun
+from app.models.schema import News, JobRun
 from app.services.rss_service import RSSService
 from app.services.poc_service import POCService
+from config import Config
+from utils.rate_limiter import RateLimiter
+from utils.timezone_utils import get_current_time
 
 
 logger = logging.getLogger(__name__)
 api_bp = Blueprint('api', __name__)
+
+_GLOBAL_JOB_LIMITERS: Dict[str, RateLimiter] = {}
+_POC_LIMITERS: Dict[int, RateLimiter] = {}
+
+
+def _now():
+    """取得當前本地時間"""
+    return get_current_time(Config.TIMEZONE)
 
 
 def api_response(code=200, message="success", data=None, details=None):
@@ -145,21 +159,25 @@ def get_news_detail(news_id):
 @api_bp.route('/jobs/rss', methods=['POST'])
 def trigger_rss_crawl():
     """觸發 RSS 爬蟲"""
-    # 檢查權限
-    if 'user_id' not in session:
-        return api_response(401, "需要登入")
-    
-    if session.get('role') not in ['admin', 'user']:
-        return api_response(403, "權限不足")
+    auth_error = _require_admin()
+    if auth_error:
+        return auth_error
+
+    limiter = _get_global_job_limiter('rss')
+    if limiter and not limiter.try_acquire():
+        current_app.logger.warning("RSS job call throttled for user %s", session.get('user_id'))
+        return api_response(429, "RSS 爬蟲請求過於頻繁，請稍後再試")
     
     try:
-        # 嘗試從 JSON 或 form 取得資料
+        # 嘗試從 JSON 或 form 或 args 取得資料
+        rss_id = None
         if request.is_json:
-            data = request.get_json() or {}
-        else:
-            data = request.form.to_dict()
-        
-        rss_id = data.get('rss_id')
+            data = request.get_json(silent=True) or {}
+            rss_id = data.get('rss_id')
+        elif request.form:
+            rss_id = request.form.get('rss_id')
+        elif request.args:
+            rss_id = request.args.get('rss_id')
         
         rss_service = RSSService()
         
@@ -169,6 +187,8 @@ def trigger_rss_crawl():
         else:
             # 執行所有 RSS 來源
             result = rss_service.run_all_rss()
+
+        _record_job_trigger(result.get('job_run_id'), session.get('user_id'), session.get('username'))
         
         if result['success']:
             return api_response(200, result['message'], {
@@ -181,19 +201,21 @@ def trigger_rss_crawl():
             })
             
     except Exception as e:
-        import traceback
-        error_detail = traceback.format_exc()
-        return api_response(500, f"執行RSS爬蟲時發生錯誤：{str(e)}", {"error": error_detail})
+        logger.exception("RSS crawl job failed")
+        return api_response(500, f"執行RSS爬蟲時發生錯誤：{str(e)}")
 
 
 @api_bp.route('/jobs/ai', methods=['POST'])
 def trigger_ai_analysis():
     """觸發 AI 分析（批次處理沒有 AI 內容的新聞）"""
-    if 'user_id' not in session:
-        return api_response(401, "需要登入")
-    
-    if session.get('role') not in ['admin', 'user']:
-        return api_response(403, "權限不足")
+    auth_error = _require_admin()
+    if auth_error:
+        return auth_error
+
+    limiter = _get_global_job_limiter('ai_batch')
+    if limiter and not limiter.try_acquire():
+        current_app.logger.warning("AI batch job throttled for user %s", session.get('user_id'))
+        return api_response(429, "AI 分析請求過於頻繁，請稍後再試")
     
     try:
         from datetime import datetime
@@ -204,7 +226,7 @@ def trigger_ai_analysis():
         job_run = JobRun(
             job_type='ai_analysis',
             target='all',
-            started_at=datetime.now(),
+            started_at=_now(),
             status='running'
         )
         db.session.add(job_run)
@@ -217,7 +239,7 @@ def trigger_ai_analysis():
         
         if not news_list:
             job_run.status = 'success'
-            job_run.ended_at = datetime.now()
+            job_run.ended_at = _now()
             job_run.inserted_count = 0
             db.session.commit()
             return api_response(200, '沒有需要分析的新聞', {'job_run_id': job_run.id})
@@ -241,7 +263,7 @@ def trigger_ai_analysis():
         
         # 更新任務記錄
         job_run.status = 'success' if error_count == 0 else 'partial'
-        job_run.ended_at = datetime.now()
+        job_run.ended_at = _now()
         job_run.inserted_count = success_count
         job_run.error_count = error_count
         db.session.commit()
@@ -257,20 +279,26 @@ def trigger_ai_analysis():
         error_detail = traceback.format_exc()
         if 'job_run' in locals():
             job_run.status = 'failed'
-            job_run.ended_at = datetime.now()
+            job_run.ended_at = _now()
             job_run.error_count = 1
             db.session.commit()
         return api_response(500, f"執行AI分析時發生錯誤：{str(e)}", {"error": error_detail})
+    finally:
+        if 'job_run' in locals():
+            _record_job_trigger(job_run.id, session.get('user_id'), session.get('username'))
 
 
 @api_bp.route('/jobs/ai-rerun', methods=['POST'])
 def trigger_ai_rerun():
     """重新執行 AI 分析"""
-    if 'user_id' not in session:
-        return api_response(401, "需要登入")
-    
-    if session.get('role') not in ['admin', 'user']:
-        return api_response(403, "權限不足")
+    auth_error = _require_admin()
+    if auth_error:
+        return auth_error
+
+    limiter = _get_global_job_limiter('ai_single')
+    if limiter and not limiter.try_acquire():
+        current_app.logger.warning("AI rerun throttled for user %s", session.get('user_id'))
+        return api_response(429, "AI 重新分析請求過於頻繁，請稍後再試")
     
     data = request.get_json()
     if not data or 'news_id' not in data:
@@ -281,6 +309,7 @@ def trigger_ai_rerun():
         result = rss_service.rerun_ai_analysis(data['news_id'])
         
         if result['success']:
+            _record_job_trigger(result.get('job_run_id'), session.get('user_id'), session.get('username'))
             return api_response(200, result['message'], {
                 'job_run_id': result['job_run_id'],
                 'ai_analysis': result.get('ai_analysis', {})
@@ -299,7 +328,12 @@ def trigger_poc_search():
     """觸發 POC 查詢"""
     if 'user_id' not in session:
         return api_response(401, "需要登入")
-    
+
+    limiter = _get_poc_limiter(session['user_id'])
+    if limiter and not limiter.try_acquire():
+        current_app.logger.info("POC search throttled for user %s", session['user_id'])
+        return api_response(429, "POC 查詢頻率過高，請稍後再試")
+
     data = request.get_json()
     if not data or 'news_id' not in data:
         return api_response(400, "缺少 news_id")
@@ -317,6 +351,7 @@ def trigger_poc_search():
         result = poc_service.search_poc_for_news(news_id, cve_ids)
         
         if result['success']:
+            _record_job_trigger(result.get('job_run_id'), session.get('user_id'), session.get('username'))
             return api_response(200, result['message'], {
                 'job_run_id': result['job_run_id'],
                 'found': result['found'],
@@ -330,6 +365,67 @@ def trigger_poc_search():
             
     except Exception as e:
         return api_response(500, f"執行POC查詢時發生錯誤：{str(e)}")
+
+
+def _require_admin():
+    if 'user_id' not in session:
+        return api_response(401, "需要登入")
+    if session.get('role') != 'admin':
+        return api_response(403, "需要管理員權限")
+    return None
+
+
+def _get_global_job_limiter(name: str) -> Optional[RateLimiter]:
+    limit = current_app.config.get('JOB_TRIGGER_MAX_PER_MINUTE', 0)
+    if limit <= 0:
+        return None
+    limiter = _GLOBAL_JOB_LIMITERS.get(name)
+    if limiter is None or limiter.max_calls != limit:
+        limiter = RateLimiter(limit, 60.0)
+        _GLOBAL_JOB_LIMITERS[name] = limiter
+    return limiter
+
+
+def _get_poc_limiter(user_id: int) -> Optional[RateLimiter]:
+    limit = current_app.config.get('POC_TRIGGER_MAX_PER_MINUTE', 0)
+    if limit <= 0:
+        return None
+    limiter = _POC_LIMITERS.get(user_id)
+    if limiter is None or limiter.max_calls != limit:
+        limiter = RateLimiter(limit, 60.0)
+        _POC_LIMITERS[user_id] = limiter
+    return limiter
+
+
+def _record_job_trigger(job_run_id: Optional[int], user_id: Optional[int], username: Optional[str]) -> None:
+    if not job_run_id or not user_id:
+        return
+
+    try:
+        job = JobRun.query.get(job_run_id)
+        if not job:
+            return
+
+        payload: Dict[str, object]
+        if job.details:
+            try:
+                parsed = json.loads(job.details)
+                payload = parsed if isinstance(parsed, dict) else {'details': parsed}
+            except (ValueError, TypeError):
+                payload = {'details': job.details}
+        else:
+            payload = {}
+
+        payload['triggered_by'] = {
+            'user_id': user_id,
+            'username': username,
+            'at': _now().isoformat()  # UTC timestamp for auditing
+        }
+
+        job.details = json.dumps(payload, ensure_ascii=False)
+        db.session.commit()
+    except Exception as exc:
+        current_app.logger.warning('Failed to record job trigger metadata: %s', exc)
 
 
 @api_bp.route('/jobs/status/<int:job_run_id>')
@@ -411,7 +507,7 @@ def get_latest_stats():
                 'jobStats': job_stats,
                 'categoryStats': category_stats,
                 'securityMetrics': security_metrics,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': _now().isoformat()
             }
         })
         

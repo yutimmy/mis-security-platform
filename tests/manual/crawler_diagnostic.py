@@ -320,7 +320,7 @@ def add_sample_news():
                         content=news_data["content"],
                         cve_id=news_data["cve_id"],
                         email=news_data["email"],
-                        created_at=datetime.now() - timedelta(days=i)
+                        created_at=datetime.utcnow() - timedelta(days=i)
                     )
                     db.session.add(news)
                     print(f"   [OK] 已添加示例新聞：{news_data['title'][:50]}...")

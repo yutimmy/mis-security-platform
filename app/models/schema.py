@@ -4,6 +4,18 @@ from datetime import datetime
 from .db import db
 
 
+def _get_current_time():
+    """取得當前本地時間（從 config 讀取時區）"""
+    try:
+        from config import Config
+        from utils.timezone_utils import get_current_time
+        return get_current_time(Config.TIMEZONE)
+    except:
+        # 備用方案：使用 UTC+8
+        from utils.timezone_utils import get_current_time
+        return get_current_time('Asia/Taipei')
+
+
 class User(db.Model):
     """使用者表"""
     __tablename__ = 'users'
@@ -15,8 +27,8 @@ class User(db.Model):
     role = db.Column(db.String(20), default='user')  # admin/user/other
     is_active = db.Column(db.Boolean, default=False)  # 註冊後需管理員核可
     discord_user_id = db.Column(db.String(50), nullable=True)
-    created_at = db.Column(db.Date, default=datetime.utcnow)
-    updated_at = db.Column(db.Date, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_get_current_time)
+    updated_at = db.Column(db.DateTime, default=_get_current_time, onupdate=_get_current_time)
 
 
 class RssSource(db.Model):
@@ -31,7 +43,7 @@ class RssSource(db.Model):
     description = db.Column(db.Text, nullable=True)  # 新增描述欄位
     enabled = db.Column(db.Boolean, default=True)
     is_active = db.Column(db.Boolean, default=True)  # 新增 is_active 欄位（與 admin 視圖一致）
-    last_run_at = db.Column(db.Date, nullable=True)
+    last_run_at = db.Column(db.DateTime, nullable=True)
 
 
 class News(db.Model):
@@ -43,7 +55,7 @@ class News(db.Model):
     title = db.Column(db.Text, nullable=True)
     source = db.Column(db.String(50), nullable=False)
     rss_source_id = db.Column(db.Integer, db.ForeignKey('rss_sources.id'), nullable=True)  # 新增外鍵關聯
-    created_at = db.Column(db.Date, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_get_current_time)
     content = db.Column(db.Text, nullable=True)  # 純文字內容
     ai_content = db.Column(db.Text, nullable=True)  # AI 產生內容 (JSON)
     keyword = db.Column(db.Text, nullable=True)  # 關鍵字
@@ -63,8 +75,8 @@ class CvePoc(db.Model):
     poc_link = db.Column(db.String(500), nullable=False)
     source = db.Column(db.String(50), default='sploitus')
     status = db.Column(db.String(20), default='found')  # 新增狀態欄位
-    found_at = db.Column(db.Date, default=datetime.utcnow)
-    created_at = db.Column(db.Date, default=datetime.utcnow)  # 新增 created_at 欄位
+    found_at = db.Column(db.DateTime, default=_get_current_time)
+    created_at = db.Column(db.DateTime, default=_get_current_time)  # 新增 created_at 欄位
     
     __table_args__ = (db.UniqueConstraint('cve_id', 'poc_link'),)
 
@@ -76,7 +88,7 @@ class JobRun(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     job_type = db.Column(db.String(50), nullable=False)  # rss_all/rss_one/poc_check
     target = db.Column(db.String(200), nullable=True)  # RSS 名稱或 CVE
-    started_at = db.Column(db.DateTime, default=datetime.utcnow)
+    started_at = db.Column(db.DateTime, default=_get_current_time)
     ended_at = db.Column(db.DateTime, nullable=True)
     inserted_count = db.Column(db.Integer, default=0)
     skipped_count = db.Column(db.Integer, default=0)
@@ -96,8 +108,8 @@ class Post(db.Model):
     author_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     is_published = db.Column(db.Boolean, default=False)
     views = db.Column(db.Integer, default=0)  # 觀看次數
-    created_at = db.Column(db.Date, default=datetime.utcnow)
-    updated_at = db.Column(db.Date, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_get_current_time)
+    updated_at = db.Column(db.DateTime, default=_get_current_time, onupdate=_get_current_time)
     tags = db.Column(db.String(200), nullable=True)
     
     author = db.relationship('User', backref='posts')
@@ -118,7 +130,7 @@ class Image(db.Model):
     related_type = db.Column(db.String(20), nullable=True)  # 關聯類型 (post/news)
     related_id = db.Column(db.Integer, nullable=True)  # 關聯 ID
     post_id = db.Column(db.Integer, db.ForeignKey('posts.id'), nullable=True)  # 保留原有關聯
-    created_at = db.Column(db.Date, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_get_current_time)
     
     user = db.relationship('User', backref='images')
     post = db.relationship('Post', backref='images')
@@ -135,8 +147,8 @@ class Notification(db.Model):
     news_id = db.Column(db.Integer, db.ForeignKey('news.id'), nullable=True)
     post_id = db.Column(db.Integer, db.ForeignKey('posts.id'), nullable=True)
     status = db.Column(db.String(20), default='queued')  # queued/sent/failed
-    created_at = db.Column(db.Date, default=datetime.utcnow)
-    sent_at = db.Column(db.Date, nullable=True)
+    created_at = db.Column(db.DateTime, default=_get_current_time)
+    sent_at = db.Column(db.DateTime, nullable=True)
     
     news = db.relationship('News', backref='notifications')
     post = db.relationship('Post', backref='notifications')
@@ -152,4 +164,4 @@ class ApiUsageLog(db.Model):
     latency_ms = db.Column(db.Integer, nullable=True)
     ok = db.Column(db.Boolean, default=True)
     cost = db.Column(db.Float, nullable=True)
-    requested_at = db.Column(db.DateTime, default=datetime.utcnow)
+    requested_at = db.Column(db.DateTime, default=_get_current_time)

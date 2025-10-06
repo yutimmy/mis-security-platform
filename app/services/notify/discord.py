@@ -84,7 +84,7 @@ class DiscordService:
                     "inline": True
                 }
             ],
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.utcnow().replace(tzinfo=timezone.utc).isoformat()
         }
 
         # 如果有 CVE，加入欄位
@@ -113,11 +113,11 @@ class DiscordService:
                 },
                 {
                     "name": "更新時間",
-                    "value": datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+                    "value": datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
                     "inline": True
                 }
             ],
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.utcnow().replace(tzinfo=timezone.utc).isoformat()
         }
 
         if poc_links and len(poc_links) > 0:
@@ -177,7 +177,7 @@ class DiscordService:
                     "inline": True
                 }
             ],
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.utcnow().replace(tzinfo=timezone.utc).isoformat()
         }
 
         if details:
@@ -198,7 +198,7 @@ class DiscordService:
                 payload=content,
                 target_role='all',
                 status=status,
-                sent_at=datetime.now(timezone.utc).date() if status == 'sent' else None
+                sent_at=datetime.utcnow() if status == 'sent' else None
             )
             db.session.add(notification)
             db.session.commit()

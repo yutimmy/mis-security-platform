@@ -27,6 +27,8 @@ class Config:
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
     JINA_MAX_RPM = int(os.getenv("JINA_MAX_RPM", 10))
+    JINA_TIMEOUT = int(os.getenv("JINA_TIMEOUT", 30))  # Jina Reader 請求超時（秒）
+    JINA_MAX_RETRIES = int(os.getenv("JINA_MAX_RETRIES", 3))  # Jina Reader 最大重試次數
     GENAI_MAX_RPM = int(os.getenv("GENAI_MAX_RPM", 5))
 
     ALLOWED_IMAGE_TYPES = os.getenv("ALLOWED_IMAGE_TYPES", "image/png,image/jpeg,image/webp")
@@ -35,10 +37,19 @@ class Config:
 
     # API 限制
     API_RATE_LIMIT_PER_MINUTE = int(os.getenv("API_RATE_LIMIT_PER_MINUTE", 60))
+    JOB_TRIGGER_MAX_PER_MINUTE = int(os.getenv("JOB_TRIGGER_MAX_PER_MINUTE", 2))
+    POC_TRIGGER_MAX_PER_MINUTE = int(os.getenv("POC_TRIGGER_MAX_PER_MINUTE", 5))
     
     # 分頁設定
     ITEMS_PER_PAGE = int(os.getenv("ITEMS_PER_PAGE", 20))
     
+    # CSRF / Session 安全
+    WTF_CSRF_ENABLED = True
+    WTF_CSRF_TIME_LIMIT = int(os.getenv("WTF_CSRF_TIME_LIMIT", 3600))
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
+    SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() in {"1", "true", "yes"}
+
     # 通知設定
     NOTIFICATION_RATE_LIMIT = int(os.getenv("NOTIFICATION_RATE_LIMIT", 10))  # 每分鐘最多通知數
     

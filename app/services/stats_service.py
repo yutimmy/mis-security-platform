@@ -1,9 +1,33 @@
 # 統計分析服務
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, time
+from zoneinfo import ZoneInfo
+
 from sqlalchemy import func
 
+from config import Config
 from ..models.db import db
 from ..models.schema import News, RssSource, JobRun, User, CvePoc
+
+
+UTC = ZoneInfo("UTC")
+try:
+    APP_TZ = ZoneInfo(getattr(Config, "TIMEZONE", "UTC"))
+except Exception:
+    APP_TZ = UTC
+
+
+def _to_utc_naive(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt
+    return dt.astimezone(UTC).replace(tzinfo=None)
+
+
+def _to_local(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return dt.astimezone(APP_TZ)
 
 
 class StatsService:
@@ -12,9 +36,9 @@ class StatsService:
     @staticmethod
     def get_dashboard_stats():
         """取得儀表板統計數據"""
-        now = datetime.now(timezone.utc)
-        week_ago = now - timedelta(days=7)
-        month_ago = now - timedelta(days=30)
+        now_local = datetime.now(APP_TZ)
+        week_ago = _to_utc_naive(now_local - timedelta(days=7))
+        month_ago = _to_utc_naive(now_local - timedelta(days=30))
 
         # 基本統計
         total_news = db.session.query(func.count(News.id)).scalar() or 0
@@ -66,33 +90,30 @@ class StatsService:
     @staticmethod
     def get_news_trend(days=30):
         """取得新聞數量趨勢（按日）"""
-        end_date = datetime.now(timezone.utc).date()
-        start_date = end_date - timedelta(days=days)
+        end_local = datetime.now(APP_TZ)
+        start_local_date = end_local.date() - timedelta(days=days)
+        start_local = datetime.combine(start_local_date, time.min, tzinfo=APP_TZ)
+        start_utc = _to_utc_naive(start_local)
 
-        # 按日期分組統計
-        results = db.session.query(
-            News.created_at.label('date'),
-            func.count(News.id).label('count')
-        ).filter(
-            News.created_at >= start_date
-        ).group_by(
-            News.created_at
-        ).order_by('date').all()
+        news_rows = db.session.query(News.created_at).filter(
+            News.created_at >= start_utc
+        ).all()
 
-        # 補齊缺少的日期
+        counts = {}
+        for (created_at,) in news_rows:
+            local_date = _to_local(created_at)
+            if local_date is None:
+                continue
+            date_key = local_date.date()
+            counts[date_key] = counts.get(date_key, 0) + 1
+
         trend_data = []
-        current_date = start_date
-        # 將結果轉換成字典，處理日期格式
-        result_dict = {}
-        for r in results:
-            date_key = r.date.strftime('%Y-%m-%d') if hasattr(r.date, 'strftime') else str(r.date)
-            result_dict[date_key] = r.count
-
+        current_date = start_local_date
+        end_date = end_local.date()
         while current_date <= end_date:
-            date_str = current_date.strftime('%Y-%m-%d')
             trend_data.append({
-                'date': date_str,
-                'count': result_dict.get(date_str, 0)
+                'date': current_date.strftime('%Y-%m-%d'),
+                'count': counts.get(current_date, 0)
             })
             current_date += timedelta(days=1)
 
@@ -153,11 +174,12 @@ class StatsService:
                 for cve in cve_list:
                     cve = cve.strip()
                     if cve and len(recent_cves) < 10:
+                        created_local = _to_local(news.created_at)
                         recent_cves.append({
                             'cve_id': cve,
                             'news_title': news.title,
                             'has_poc': bool(news.poc_link),
-                            'created_at': news.created_at.strftime('%Y-%m-%d') if news.created_at else None
+                            'created_at': created_local.strftime('%Y-%m-%d') if created_local else None
                         })
 
         return {
@@ -176,13 +198,13 @@ class StatsService:
             role_distribution[role or 'unknown'] = count
         
         # 用戶活躍度（最近30天登入）
-        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+        thirty_days_ago = _to_utc_naive(datetime.now(APP_TZ) - timedelta(days=30))
         active_users = db.session.query(func.count(User.id)).filter(
             User.updated_at >= thirty_days_ago
         ).scalar() or 0
         
         # 新註冊用戶（最近7天）
-        week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+        week_ago = _to_utc_naive(datetime.now(APP_TZ) - timedelta(days=7))
         new_users = db.session.query(func.count(User.id)).filter(
             User.created_at >= week_ago
         ).scalar() or 0
@@ -224,18 +246,33 @@ class StatsService:
         recent_jobs = db.session.query(JobRun).order_by(
             JobRun.started_at.desc()
         ).limit(5).all()
-        
-        # 每日任務執行趨勢
-        week_ago = datetime.now(timezone.utc).date() - timedelta(days=7)
-        daily_jobs = db.session.query(
-            JobRun.started_at.label('date'),
-            func.count(JobRun.id).label('count')
-        ).filter(
-            JobRun.started_at >= week_ago
-        ).group_by(
-            func.date(JobRun.started_at)
-        ).order_by('date').all()
-        
+
+        # 每日任務執行趨勢（依據設定時區）
+        week_ago_local = datetime.now(APP_TZ) - timedelta(days=7)
+        week_ago_utc = _to_utc_naive(week_ago_local)
+
+        job_rows = db.session.query(JobRun.started_at).filter(
+            JobRun.started_at >= week_ago_utc
+        ).all()
+
+        job_counts = {}
+        for (started_at,) in job_rows:
+            local_date = _to_local(started_at)
+            if local_date is None:
+                continue
+            key = local_date.date()
+            job_counts[key] = job_counts.get(key, 0) + 1
+
+        job_trend = []
+        current_date = week_ago_local.date()
+        end_date = datetime.now(APP_TZ).date()
+        while current_date <= end_date:
+            job_trend.append({
+                'date': current_date.strftime('%Y-%m-%d'),
+                'count': job_counts.get(current_date, 0)
+            })
+            current_date += timedelta(days=1)
+
         return {
             'total_jobs': total_jobs,
             'success_jobs': success_jobs,
@@ -244,19 +281,14 @@ class StatsService:
             'partial_jobs': partial_jobs,
             'success_rate': round(success_rate, 1),
             'job_type_distribution': {r.job_type: r.count for r in job_type_dist},
-            'daily_trend': [
-                {
-                    'date': r.date.strftime('%Y-%m-%d') if hasattr(r.date, 'strftime') else str(r.date),
-                    'count': r.count
-                }
-                for r in daily_jobs
-            ],
+            'daily_trend': job_trend,
             'recent_jobs': [
                 {
                     'id': job.id,
                     'job_type': job.job_type,
                     'status': job.status,
-                    'started_at': job.started_at.strftime('%Y-%m-%d %H:%M') if job.started_at else None,
+                    'started_at': (_to_local(job.started_at).strftime('%Y-%m-%d %H:%M')
+                                   if job.started_at else None),
                     'inserted_count': job.inserted_count,
                     'error_count': job.error_count
                 }
@@ -363,58 +395,51 @@ class StatsService:
     @staticmethod
     def get_advanced_analytics():
         """取得進階分析數據"""
-        now = datetime.now(timezone.utc)
-        
-        # 獲取過去30天的數據
-        thirty_days_ago = now - timedelta(days=30)
-        
-        # 每日新聞量趨勢（過去30天）
-        daily_news = db.session.query(
-            func.date(News.created_at).label('date'),
-            func.count(News.id).label('count')
-        ).filter(
-            News.created_at >= thirty_days_ago
-        ).group_by(
-            func.date(News.created_at)
-        ).order_by('date').all()
-        
-        # 每小時分佈熱力圖
-        hourly_distribution = db.session.query(
-            func.extract('hour', News.created_at).label('hour'),
-            func.count(News.id).label('count')
-        ).filter(
-            News.created_at >= thirty_days_ago
-        ).group_by(
-            func.extract('hour', News.created_at)
+        now_local = datetime.now(APP_TZ)
+        thirty_days_ago_local = now_local - timedelta(days=30)
+        start_local = datetime.combine(thirty_days_ago_local.date(), time.min, tzinfo=APP_TZ)
+        start_utc = _to_utc_naive(start_local)
+
+        news_rows = db.session.query(News.created_at, News.cve_id).filter(
+            News.created_at >= start_utc
         ).all()
-        
-        # CVE 嚴重性趨勢（基於年份）
+
+        daily_counts = {}
+        hourly_counts = {hour: 0 for hour in range(24)}
         cve_trends = {}
-        news_with_cve = db.session.query(News).filter(
-            News.cve_id.isnot(None),
-            News.cve_id != '',
-            News.created_at >= thirty_days_ago
-        ).all()
-        
-        for news in news_with_cve:
-            date_str = news.created_at.strftime('%Y-%m-%d') if hasattr(news.created_at, 'strftime') else str(news.created_at)
-            if date_str not in cve_trends:
-                cve_trends[date_str] = 0
-            if news.cve_id:
-                cve_count = len(news.cve_id.split(','))
-                cve_trends[date_str] += cve_count
-        
+
+        for created_at, cve_id in news_rows:
+            local_dt = _to_local(created_at)
+            if local_dt is None:
+                continue
+
+            date_key = local_dt.date()
+            daily_counts[date_key] = daily_counts.get(date_key, 0) + 1
+            hourly_counts[local_dt.hour] += 1
+
+            if cve_id:
+                for raw_cve in cve_id.split(','):
+                    cve = raw_cve.strip()
+                    if not cve:
+                        continue
+                    date_str = local_dt.strftime('%Y-%m-%d')
+                    cve_trends[date_str] = cve_trends.get(date_str, 0) + 1
+
+        daily_news_trend = []
+        current_date = thirty_days_ago_local.date()
+        end_date = now_local.date()
+        while current_date <= end_date:
+            daily_news_trend.append({
+                'date': current_date.strftime('%Y-%m-%d'),
+                'count': daily_counts.get(current_date, 0)
+            })
+            current_date += timedelta(days=1)
+
         return {
-            'daily_news_trend': [
-                {
-                    'date': r.date.strftime('%Y-%m-%d') if hasattr(r.date, 'strftime') else str(r.date), 
-                    'count': r.count
-                }
-                for r in daily_news
-            ],
+            'daily_news_trend': daily_news_trend,
             'hourly_distribution': [
-                {'hour': int(r.hour), 'count': r.count}
-                for r in hourly_distribution
+                {'hour': hour, 'count': count}
+                for hour, count in sorted(hourly_counts.items())
             ],
             'cve_daily_trend': [
                 {'date': date, 'count': count}
@@ -425,8 +450,8 @@ class StatsService:
     @staticmethod
     def get_performance_metrics():
         """取得系統性能指標"""
-        now = datetime.now(timezone.utc)
-        week_ago = now - timedelta(days=7)
+        now_local = datetime.now(APP_TZ)
+        week_ago = _to_utc_naive(now_local - timedelta(days=7))
         
         # 任務執行性能
         job_performance = db.session.query(
@@ -471,7 +496,8 @@ class StatsService:
                     'name': r.name,
                     'source': r.source,
                     'news_count': r.news_count,
-                    'last_update': r.last_update.strftime('%Y-%m-%d %H:%M') if r.last_update else 'Never',
+                    'last_update': (_to_local(r.last_update).strftime('%Y-%m-%d %H:%M')
+                                   if r.last_update else 'Never'),
                     'status': 'active' if r.news_count > 0 else 'inactive'
                 }
                 for r in source_activity
@@ -545,4 +571,4 @@ class StatsService:
     @staticmethod
     def get_current_timestamp():
         """取得當前時間戳"""
-        return datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
+        return datetime.utcnow().strftime('%Y%m%d_%H%M%S')

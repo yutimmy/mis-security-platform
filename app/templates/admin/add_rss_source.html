@@ -24,6 +24,7 @@
 
         <div class="bg-white shadow-md rounded-lg p-6">
             <form method="POST" class="space-y-6">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div>
                     <label for="name" class="block text-sm font-medium text-gray-700 mb-2">來源名稱</label>
                     <input type="text" id="name" name="name" required

@@ -4,6 +4,7 @@ import logging
 import os
 
 import google.generativeai as genai
+from google.api_core import exceptions as google_exceptions
 
 from config import Config
 from utils.rate_limiter import RateLimiter
@@ -87,6 +88,14 @@ class GenAIClient:
                     "keywords": []
                 }
                 
+        except (google_exceptions.ResourceExhausted, google_exceptions.TooManyRequests) as exc:
+            retry_seconds = getattr(getattr(exc, "retry_delay", None), "seconds", None)
+            logger.warning(
+                "Google GenAI quota exhausted for model %s; retry in %ss if possible",
+                self.model_name,
+                retry_seconds,
+            )
+            raise RateLimitExceeded("Google GenAI quota exhausted") from exc
         except RateLimitExceeded:
             raise
         except Exception as e:
